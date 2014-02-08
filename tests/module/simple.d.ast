@@ -1,0 +1,2 @@
+ast.ModuleDeclaration (0..0, 0:0):
+  name: 'abc.def.ghi'
