@@ -251,11 +251,16 @@ public Module parse(const(dchar)[] text) {
 		auto d = new ModuleDeclaration;
 		result.declarations ~= d;
 
+		bool shouldBeIdentifier = true;
+
 		void finish() {
 			endTextRange();
 			d.textRange = endTextRange();
 			if (d.names.empty) {
 				error("no module name");
+			} else if (shouldBeIdentifier) {
+				error("empty package name");
+				d.names ~= "";
 			}
 		}
 
@@ -266,9 +271,9 @@ public Module parse(const(dchar)[] text) {
 
 		startTextRange();
 		mixin(generateParser!(ParserGenerator().skipWhitespace().skipLineBreaks().handleComments()
-			.identifier("d.names ~= endTextRange().text; startTextRange();")
-			.identifierThatStartsWithDigit("error(\"package name starts with digit\"); d.names ~= endTextRange().text; startTextRange();")
-			.oneOfChars(['.'], "if (d.names.empty) { error(\"module name starts with dot\"); } restartTextRange();")
+			.identifier("d.names ~= endTextRange().text; startTextRange(); shouldBeIdentifier = false;")
+			.identifierThatStartsWithDigit("error(\"package name starts with digit\"); d.names ~= endTextRange().text; startTextRange(); shouldBeIdentifier = false;")
+			.oneOfChars(['.'], "if (shouldBeIdentifier) { d.names ~= \"\"; error(\"empty package name\"); } restartTextRange(); shouldBeIdentifier = true;")
 			.oneOfChars([';'], "return finish();")
 			.noMatch("return fail();")
 		));
