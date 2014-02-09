@@ -1,5 +1,7 @@
 module ast;
 
+import std.array : join;
+
 
 abstract class Visitor {
 	public void visit(Element element) {
@@ -38,7 +40,9 @@ class Declaration : Element {
 }
 
 class ModuleDeclaration : Declaration {
-	const(dchar)[] name;
+	const(dchar)[][] names;
+
+	@property const(dchar)[] name() { return join(names, "."d); }
 }
 
 class Import : Declaration {

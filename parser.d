@@ -256,17 +256,9 @@ public Module parse(const(dchar)[] text) {
 			error("missing semicolon");
 		}
 
-		void onIdentifier() {
-			TextRange textRange = endTextRange();
-			if (d.name.length > 0) d.name ~= '.';
-			d.name ~= textRange.text;
-
-			startTextRange();
-		}
-
 		startTextRange();
 		mixin(generateParser!(ParserGenerator().skipWhitespace().skipLineBreaks().handleComments()
-			.identifier("onIdentifier();")
+			.identifier("d.names ~= endTextRange().text; startTextRange();")
 			.oneOfChars(['.'], "restartTextRange();")
 			.oneOfChars([';'], "return finish();")
 			.noMatch("return fail();")
