@@ -136,8 +136,6 @@ public Module parse(const(dchar)[] text) {
 		immutable string generateParser = rulesTuple[0].generate();
 	}
 
-
-
 	SuffixTree suffixTreeThatKnowsAboutCommentsAndWhitespace() {
 		return SuffixTree()
 			.oneOfChars(whitespaceChars, q{ firstCharIndex = position; continue; })
@@ -146,8 +144,6 @@ public Module parse(const(dchar)[] text) {
 			.charSequence("/*", "finishParsingBlockComment")
 			.charSequence("/+", "finishParsingNestingBlockComment");
 	}
-
-
 
 
 

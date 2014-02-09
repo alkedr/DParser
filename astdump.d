@@ -53,6 +53,9 @@ int main(string[] args) {
 	}
 
 	Module m = parse(dtext(readText!(string)(args[1])));
+	foreach (error; m.errors) {
+		writeln("Error: ", error.text);
+	}
 	auto dumper = new ASTDumpVisitor;
 	foreach (declaration; m.declarations) {
 		dumper.visit(declaration);
