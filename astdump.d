@@ -16,7 +16,8 @@ class ASTDumpVisitor : Visitor {
 
 	void declaration(Declaration d) {
 		writefln(`%s%s (%d..%d, %d:%d):`, indent(), d.classinfo.name,
-			d.firstCharIndex, d.firstCharIndex+d.text.length, d.line, d.column);
+			d.textRange.firstCharIndex, d.textRange.firstCharIndex+d.textRange.text.length,
+			d.textRange.line, d.textRange.column);
 	}
 
 	void field(T)(string key, T value) {
