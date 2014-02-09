@@ -93,29 +93,25 @@ public Module parse(const(dchar)[] text) {
 
 
 
-	struct SuffixTree {
-		SuffixTree[dchar] _impl;
+	struct ParserGenerator {
+		ParserGenerator[dchar] rules;
 		string action;
 
-		//invariant() {
-		//	assert((action != "") || (_impl.length > 0));
-		//}
-
-		SuffixTree oneOfChars(const dchar[] chars, string action) {
+		ParserGenerator oneOfChars(const dchar[] chars, string action) {
 			return add([chars], action);
 		}
 
-		SuffixTree oneOfChars(dchar c, string action) {
+		ParserGenerator oneOfChars(dchar c, string action) {
 			return oneOfChars([c], action);
 		}
 
-		SuffixTree charSequence(const dchar[] chars, string action) {
+		ParserGenerator charSequence(const dchar[] chars, string action) {
 			dchar[][] sequence;
 			foreach (c; chars) sequence ~= [c];
 			return add(sequence, action);
 		}
 
-		SuffixTree keyword(const dchar[] chars, string actionOnMatch, string actionOnMismatch) {
+		ParserGenerator keyword(const dchar[] chars, string actionOnMatch, string actionOnMismatch) {
 			return charSequence(chars,
 				"if(isIdentifierChar(currentChar())){" ~
 					actionOnMismatch ~
@@ -125,33 +121,33 @@ public Module parse(const(dchar)[] text) {
 			);
 		}
 
-		SuffixTree identifier(string action) {
+		ParserGenerator identifier(string action) {
 			return oneOfChars(identifierFirstChars, "while(isIdentifierChar(advance())){}" ~ action);
 		}
 
-		SuffixTree noMatch(string action) {
+		ParserGenerator noMatch(string action) {
 			assert(this.action is null);
 			this.action = action;
 			return this;
 		}
 
-		SuffixTree skipWhitespace() {
+		ParserGenerator skipWhitespace() {
 			return oneOfChars(whitespaceChars, "restartTextRange();");
 		}
 
-		SuffixTree ignoreWhitespace() {
+		ParserGenerator ignoreWhitespace() {
 			return oneOfChars(whitespaceChars, " ");
 		}
 
-		SuffixTree skipLineBreaks() {
+		ParserGenerator skipLineBreaks() {
 			return oneOfChars(lineBreakChars, "restartTextRange();");
 		}
 
-		SuffixTree ignoreLineBreaks() {
+		ParserGenerator ignoreLineBreaks() {
 			return oneOfChars(lineBreakChars, " ");
 		}
 
-		SuffixTree handleComments() {
+		ParserGenerator handleComments() {
 			return charSequence("//", "finishParsingLineComment();")
 			      .charSequence("/*", "finishParsingBlockComment();")
 			      .charSequence("/+", "finishParsingNestingBlockComment();");
@@ -165,11 +161,11 @@ public Module parse(const(dchar)[] text) {
 		//key - array of possible values for chars
 		//key[i] - array of possible values for char #i
 		//key[i][j] - one of possible values for char #i
-		private SuffixTree add(const(dchar[][]) key, string action) {
+		private ParserGenerator add(const(dchar[][]) key, string action) {
 			if (key.length > 0) {
 				foreach (c; key[0]) {
-					if (c !in _impl) _impl[c] = SuffixTree();
-					_impl[c].add(key[1..$], action);
+					if (c !in rules) rules[c] = ParserGenerator();
+					rules[c].add(key[1..$], action);
 				}
 			} else {
 				assert(this.action is null);
@@ -179,11 +175,11 @@ public Module parse(const(dchar)[] text) {
 		}
 
 		private string code() const {
-			if (_impl.length == 0) return action;
+			if (rules.length == 0) return action;
 			string result = "switch(getCurrentCharAndAdvance()){";
 
 			dchar[][string] codeToCharsMap;
-			foreach (key, value; _impl) {
+			foreach (key, value; rules) {
 				auto generatedCode = value.code;
 				if (generatedCode in codeToCharsMap) {
 					codeToCharsMap[generatedCode] ~= key;
@@ -269,7 +265,7 @@ public Module parse(const(dchar)[] text) {
 		}
 
 		startTextRange();
-		mixin(generateParser!(SuffixTree().skipWhitespace().skipLineBreaks().handleComments()
+		mixin(generateParser!(ParserGenerator().skipWhitespace().skipLineBreaks().handleComments()
 			.identifier("onIdentifier();")
 			.oneOfChars(['.'], "restartTextRange();")
 			.oneOfChars([';'], "return finish();")
@@ -284,14 +280,14 @@ public Module parse(const(dchar)[] text) {
 		}
 
 		startTextRange();
-		mixin(generateParser!(SuffixTree().ignoreWhitespace().ignoreLineBreaks().handleComments()
+		mixin(generateParser!(ParserGenerator().ignoreWhitespace().ignoreLineBreaks().handleComments()
 			.oneOfChars(identifierChars, "return parseImportList(endTextRange());")
 		));
 	}
 
 	void parseDeclaration() {
 		startTextRange();
-		mixin(generateParser!(SuffixTree().skipWhitespace().skipLineBreaks().handleComments()
+		mixin(generateParser!(ParserGenerator().skipWhitespace().skipLineBreaks().handleComments()
 			.keyword("module", "return finishParsingModuleDeclaration();", "return finishParsingIdentifier();")
 			.keyword("import", "return finishParsingImportDeclaration();", "return finishParsingIdentifier();")
 		));
