@@ -20,12 +20,7 @@ class TextRange {
 	size_t column;
 	const(dchar)[] text;
 
-	this(size_t firstCharIndex, size_t line, size_t column, const(dchar)[] text) {
-		this.firstCharIndex = firstCharIndex;
-		this.line = line;
-		this.column = column;
-		this.text = text;
-	}
+	this() {}
 }
 
 

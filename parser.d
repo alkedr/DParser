@@ -35,11 +35,43 @@ public Module parse(const(dchar)[] text) {
 
 	dchar currentChar() { return text[position]; }
 	dchar advance() { return isEOF() ? 0 : text[++position]; }
+	dchar getCurrentCharAndAdvance() { return isEOF() ? 0 : text[position++]; }
+
+
+	TextRange[] textRangeStack;
+
+	void initTextRange(ref TextRange textRange) {
+		textRange.firstCharIndex = position;
+		textRange.line = line;
+		textRange.column = column;
+	}
+
+	void startTextRange() {
+		auto textRange = new TextRange;
+		initTextRange(textRange);
+		textRangeStack ~= textRange;
+	}
+
+	ref TextRange currentTextRange() {
+		assert(textRangeStack.length > 0);
+		return textRangeStack[$-1];
+	}
+
+	void restartTextRange() {
+		initTextRange(currentTextRange());
+	}
+
+	TextRange endTextRange() {
+		TextRange result = currentTextRange();
+		textRangeStack = textRangeStack[0..$-1];
+		result.text = text[result.firstCharIndex..position];
+		return result;
+	}
 
 
 
-
-	immutable auto identifierChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"d;
+	immutable auto identifierFirstChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"d;
+	immutable auto identifierChars = identifierFirstChars ~ "0123456789"d;
 	immutable auto whitespaceChars = "\u0020\u0009\u000B\u000C"d;
 	immutable auto lineBreakChars = "\u000D\u000A\u2028\u2029"d;
 
@@ -47,7 +79,7 @@ public Module parse(const(dchar)[] text) {
 
 	struct SuffixTree {
 		SuffixTree[dchar] _impl;
-		string action = "";
+		string action;
 
 		//invariant() {
 		//	assert((action != "") || (_impl.length > 0));
@@ -57,39 +89,35 @@ public Module parse(const(dchar)[] text) {
 			return add([chars], action);
 		}
 
+		SuffixTree oneOfChars(dchar c, string action) {
+			return oneOfChars([c], action);
+		}
+
 		SuffixTree charSequence(const dchar[] chars, string action) {
-			return add(splitIntoOneCharStrings(chars), action);
+			dchar[][] sequence;
+			foreach (c; chars) sequence ~= [c];
+			return add(sequence, action);
 		}
 
 		SuffixTree keyword(const dchar[] chars, string actionOnMatch, string actionOnMismatch) {
-			return add(splitIntoOneCharStrings(chars), actionOnMatch)
-			      .add(splitIntoOneCharStrings(chars) ~ [identifierChars], actionOnMismatch);
+			return charSequence(chars,
+				"if(isIdentifierChar(currentChar())){" ~
+					actionOnMismatch ~
+				"}else{" ~
+					actionOnMatch ~
+				"}"
+			);
 		}
 
-		// TODO: token (variable length)
-		SuffixTree token(const dchar[] chars, string action) {
-			return oneOfChars(chars, /*SuffixTree().oneOfChars(chars, ) ~*/ action);
+		SuffixTree noMatch(string action) {
+			assert(this.action is null);
+			this.action = action;
+			return this;
 		}
 
-		SuffixTree identifier(string action) {
-			return token(identifierChars, action);
-		}
-
-		/*SuffixTree keywords(const dchar[][] strings, string action) {
-			const(dchar[])[][] result;
-			foreach (s; strings) result ~= [splitIntoOneCharStrings(s)];
-			return result;
-		}*/
 
 		string generate() const {
-			return "size_t firstCharIndex=position+1;while(!isEOF()){" ~ code ~ "}";
-		}
-
-
-		private static const(dchar[][]) splitIntoOneCharStrings(const dchar[] chars) pure @safe nothrow {
-			dchar[][] result;
-			foreach (c; chars) result ~= [c];
-			return result;
+			return "while(!isEOF()){" ~ code ~ "}";
 		}
 
 		//key - array of possible values for chars
@@ -102,15 +130,15 @@ public Module parse(const(dchar)[] text) {
 					_impl[c].add(key[1..$], action);
 				}
 			} else {
-				assert(this.action == "");
-				this.action = action ~ "(new TextRange(firstCharIndex, line, column, text[firstCharIndex..position]));";
+				assert(this.action is null);
+				this.action = action;
 			}
 			return this;
 		}
 
 		private string code() const {
 			if (_impl.length == 0) return action;
-			string result = "switch(currentChar()){";
+			string result = "switch(getCurrentCharAndAdvance()){";
 
 			dchar[][string] codeToCharsMap;
 			foreach (key, value; _impl) {
@@ -124,10 +152,16 @@ public Module parse(const(dchar)[] text) {
 
 			foreach (generatedCode, chars; codeToCharsMap) {
 				foreach (c; chars) result ~= format(`case'\U%08X':`, c);
-				result ~= "{advance();" ~ generatedCode ~ "}break;";
+				result ~= "{" ~ generatedCode ~ "}break;";
 			}
 
-			return result ~ format(`default:{%s}break;}`, action);
+			if (action !is null) {
+				result ~= format(`default:{%s}break;}`, action);
+			} else {
+				result ~= `default:}`;
+			}
+
+			return result;
 		}
 	}
 
@@ -137,11 +171,11 @@ public Module parse(const(dchar)[] text) {
 
 	SuffixTree suffixTreeThatKnowsAboutCommentsAndWhitespace() {
 		return SuffixTree()
-			.oneOfChars(whitespaceChars, q{ firstCharIndex = position; continue; })
-			.oneOfChars(lineBreakChars, q{ firstCharIndex = position; continue; })
-			.charSequence("//", "finishParsingLineComment")
-			.charSequence("/*", "finishParsingBlockComment")
-			.charSequence("/+", "finishParsingNestingBlockComment");
+			.oneOfChars(whitespaceChars, "restartTextRange();")
+			.oneOfChars(lineBreakChars, "restartTextRange();")
+			.charSequence("//", "finishParsingLineComment();")
+			.charSequence("/*", "finishParsingBlockComment();")
+			.charSequence("/+", "finishParsingNestingBlockComment();");
 	}
 
 
@@ -160,64 +194,102 @@ public Module parse(const(dchar)[] text) {
 		result.errors ~= error;
 	}
 
-	void finishParsingIdentifier(TextRange textRange) {
+
+	Declaration finishParsingLineComment() {
+		assert(0);
+	}
+	Declaration finishParsingBlockComment() {
+		assert(0);
+	}
+	Declaration finishParsingNestingBlockComment() {
 		assert(0);
 	}
 
-	void skipWhitespace() {
-		while (isWhitespaceChar(currentChar())) {
-			advance();
+	void finishParsingIdentifier()
+	in{
+		assert(currentTextRange.firstCharIndex < position);
+		//assert(text[currentTextRange.firstCharIndex]);
+		//assert(identifierFirstChars.contains(currentTextRange.text[0]));
+	} out {
+		assert(!isIdentifierChar(text[position]));
+	} body {
+		while (isIdentifierChar(advance())) {}
+		//mixin(generateParser!(SuffixTree()
+		//	.oneOfChars(identifierChars, " ")
+		//	.noMatch("return;")
+		//));
+	}
+
+	void finishParsingModuleDeclaration()
+	in {
+		//assert(moduleKeywordTextRange.text == "module");
+		//assert(position == moduleKeywordTextRange.firstCharIndex + moduleKeywordTextRange.text.length);
+	}
+	body {
+		auto d = new ModuleDeclaration;
+
+		void parsedModuleName(TextRange textRange) {
+			if (d.name.length > 0) d.name ~= '.';
+			d.name ~= textRange.text;
 		}
-	}
 
-	void expectSemicolon() {
-		skipWhitespace();
-		(currentChar() == ';') ? advance() : error("missing semicolon");
-	}
-
-	Declaration finishParsingLineComment(TextRange textRange) {
-		assert(0);
-	}
-	Declaration finishParsingBlockComment(TextRange textRange) {
-		assert(0);
-	}
-	Declaration finishParsingNestingBlockComment(TextRange textRange) {
-		assert(0);
-	}
-
-	void finishParsingModuleDeclaration(TextRange moduleKeywordTextRange) {
-		void parseModuleName(TextRange textRange) {
-			// TODO: parseIdentifier, expect . or ;, ...
-			size_t moduleNameBegin = position-1;
-			while (isIdentifierChar(currentChar()) || (currentChar() == '.')) {
-				advance();
-			}
-			auto d = new ModuleDeclaration;
-			d.textRange = textRange;
-			d.name = text[moduleNameBegin..position];
+		void finish() {
+			d.textRange = endTextRange();
 			result.declarations ~= d;
-			expectSemicolon();
 		}
 
+		void fail() {
+			finish();
+			error("missing semicolon");
+		}
+
+		void onIdentifier() {
+			finishParsingIdentifier();
+			parsedModuleName(endTextRange());
+		}
+
+		startTextRange();
 		mixin(generateParser!(suffixTreeThatKnowsAboutCommentsAndWhitespace()
-			.oneOfChars(identifierChars, "return parseModuleName")
+			.oneOfChars(identifierFirstChars, "onIdentifier();")
+			.oneOfChars(['.'], "startTextRange();")
+			.oneOfChars([';'], "return finish();")
+			.noMatch("return fail();")
 		));
+		fail();
 	}
 
-	void finishParsingImportDeclaration(TextRange importKeywordTextRange) {
+	void finishParsingImportDeclaration() {
 		void parseImportList(TextRange textRange) {
 			assert(0);
 		}
 
+		startTextRange();
 		mixin(generateParser!(suffixTreeThatKnowsAboutCommentsAndWhitespace()
-			.oneOfChars(identifierChars, "return parseImportList")
+			.oneOfChars(identifierChars, "return parseImportList(endTextRange());")
 		));
 	}
 
-	mixin(generateParser!(suffixTreeThatKnowsAboutCommentsAndWhitespace()
-		.keyword("module", "finishParsingModuleDeclaration", "finishParsingIdentifier")
-		.keyword("import", "finishParsingImportDeclaration", "finishParsingIdentifier")
-	));
+	void parseDeclaration() {
+		startTextRange();
+		mixin(generateParser!(suffixTreeThatKnowsAboutCommentsAndWhitespace()
+			.keyword("module", "return finishParsingModuleDeclaration();", "return finishParsingIdentifier();")
+			.keyword("import", "return finishParsingImportDeclaration();", "return finishParsingIdentifier();")
+		));
+	}
+
+	//writeln(SuffixTree()
+	//		.oneOfChars(identifierChars, " ")
+	//		.noMatch("return;")
+	//	.generate());
+
+
+	while (!isEOF()) {
+		parseDeclaration();
+	}
 
 	return result;
+}
+
+unittest {
+	parse("");
 }
