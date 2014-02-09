@@ -12,16 +12,14 @@ private struct SuffixTree {
 	private SuffixTree[immutable(dchar)[]] _impl;
 	string action = "";
 
+	//invariant() {
+	//	assert((action != "") || (_impl.length > 0));
+	//}
+
 	alias _impl this;
 
 	SuffixTree oneOfChars(const dchar[] chars, string action) {
 		return add([chars], action);
-	}
-
-	private const(dchar[][]) splitIntoOneCharStrings(const dchar[] chars) {
-		dchar[][] result;
-		foreach (c; chars) result ~= [c];
-		return result;
 	}
 
 	SuffixTree charSequence(const dchar[] chars, string action) {
@@ -39,17 +37,17 @@ private struct SuffixTree {
 		return result;
 	}*/
 
-	string code() {
-		if (_impl.length == 0) return action;
-		string result = "switch(currentChar()){";
-		foreach (keys, subtree; _impl) {
-			foreach (key; keys) result ~= format(`case'\U%08X':`, key);
-			result ~= "{advance();" ~ subtree.code() ~ "}break;";
-		}
-		return result ~ format(`default:{%s}break;}`, action);
+	string generate() {
+		//mergeKeysWithEqualValues();
+		return "size_t firstCharIndex=position+1;while(!isEOF()){"~code~"}";
 	}
 
-//TODO: invariant
+
+	private const(dchar[][]) splitIntoOneCharStrings(const dchar[] chars) {
+		dchar[][] result;
+		foreach (c; chars) result ~= [c];
+		return result;
+	}
 
 	//key - array of possible values for chars
 	//key[i] - array of possible values for char #i
@@ -69,8 +67,8 @@ private struct SuffixTree {
 		return this;
 	}
 
-	public void mergeKeysWithEqualValues() {
-		/*foreach (c, subtree; _impl) {
+	/*public void mergeKeysWithEqualValues() {
+		foreach (c, subtree; _impl) {
 			subtree.mergeKeysWithEqualValues();
 		}
 
@@ -87,10 +85,20 @@ private struct SuffixTree {
 			newImpl[keys] = subtree;
 		}
 
-		_impl = newImpl;*/
+		_impl = newImpl;
+	}*/
+
+	private string code() {
+		if (_impl.length == 0) return action;
+		string result = "switch(currentChar()){";
+		foreach (keys, subtree; _impl) {
+			foreach (key; keys) result ~= format(`case'\U%08X':`, key);
+			result ~= "{advance();" ~ subtree.code() ~ "}break;";
+		}
+		return result ~ format(`default:{%s}break;}`, action);
 	}
 
-	const bool opEquals(ref const SuffixTree other) const pure @safe {
+	/*const bool opEquals(ref const SuffixTree other) const pure @safe {
 		if (action != other.action) return false;
 		foreach (key, value; _impl) {
 			if (key !in other._impl) return false;
@@ -102,22 +110,18 @@ private struct SuffixTree {
 		}
 
 		return true;
-	}
-}
-
-private string generateParserCode(SuffixTree tree) {
-	return "size_t firstCharIndex=position+1;while(!isEOF()){"~tree.code~"}";
+	}*/
 }
 
 private template generateParser(rulesTuple...) {
-	immutable string generateParser = generateParserCode(rulesTuple);
+	immutable string generateParser = rulesTuple[0].generate();
 }
 
 
 
-private immutable dstring identifierChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
-private immutable dstring whitespaceChars = "\u0020\u0009\u000B\u000C";
-private immutable dstring lineBreakChars = "\u000D\u000A\u2028\u2029";
+private immutable auto identifierChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"d;
+private immutable auto whitespaceChars = "\u0020\u0009\u000B\u000C"d;
+private immutable auto lineBreakChars = "\u000D\u000A\u2028\u2029"d;
 
 
 
@@ -184,40 +188,32 @@ public Declaration[] parse(const(dchar)[] text) {
 		assert(0);
 	}
 
-	void parseModuleName() {
-		// TODO: parseIdentifier, expect . or ;, ...
-		size_t moduleNameBegin = position-1;
-		while (isIdentifierChar(currentChar()) || (currentChar() == '.')) {
-			advance();
-		}
-		auto d = new ModuleDeclaration;
-		d.name = text[moduleNameBegin..position];
-		result ~= d;
-		expectSemicolon();
-	}
-
-	void parseImportList() {
-		assert(0);
-	}
-
 	void finishParsingModuleDeclaration() {
-		if (isIdentifierChar(currentChar())) {
-			finishParsingIdentifier();
-		} else {
-			mixin(generateParser!(suffixTreeThatKnowsAboutCommentsAndWhitespace()
-				.oneOfChars(identifierChars, q{ parseModuleName(); return; })
-			));
+		void parseModuleName() {
+			// TODO: parseIdentifier, expect . or ;, ...
+			size_t moduleNameBegin = position-1;
+			while (isIdentifierChar(currentChar()) || (currentChar() == '.')) {
+				advance();
+			}
+			auto d = new ModuleDeclaration;
+			d.name = text[moduleNameBegin..position];
+			result ~= d;
+			expectSemicolon();
 		}
+
+		mixin(generateParser!(suffixTreeThatKnowsAboutCommentsAndWhitespace()
+			.oneOfChars(identifierChars, q{ parseModuleName(); return; })
+		));
 	}
 
 	void finishParsingImportDeclaration() {
-		if (isIdentifierChar(currentChar())) {
-			finishParsingIdentifier();
-		} else {
-			mixin(generateParser!(suffixTreeThatKnowsAboutCommentsAndWhitespace()
-				.oneOfChars(identifierChars, q{ parseImportList(); return; })
-			));
+		void parseImportList() {
+			assert(0);
 		}
+
+		mixin(generateParser!(suffixTreeThatKnowsAboutCommentsAndWhitespace()
+			.oneOfChars(identifierChars, q{ parseImportList(); return; })
+		));
 	}
 
 	//writeln(
@@ -232,8 +228,8 @@ public Declaration[] parse(const(dchar)[] text) {
 	//);
 
 	mixin(generateParser!(suffixTreeThatKnowsAboutCommentsAndWhitespace()
-		.keyword("module", q{ finishParsingModuleDeclaration(); }, q{})
-		.keyword("import", q{ finishParsingImportDeclaration(); }, q{})
+		.keyword("module", q{ finishParsingModuleDeclaration(); }, q{finishParsingIdentifier();})
+		.keyword("import", q{ finishParsingImportDeclaration(); }, q{finishParsingIdentifier();})
 	));
 
 	return result;
