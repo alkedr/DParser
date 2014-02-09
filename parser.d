@@ -7,6 +7,7 @@ import std.string : format;
 import std.conv;
 import std.range;
 import std.array;
+import std.stdio;
 import std.algorithm;
 
 
@@ -47,6 +48,7 @@ public Module parse(const(dchar)[] text) {
 	}
 
 	void startTextRange() {
+		//writeln(std.array.replicate("  ", textRangeStack.length), __FUNCTION__, " ", position);
 		auto textRange = new TextRange;
 		initTextRange(textRange);
 		textRangeStack ~= textRange;
@@ -58,10 +60,12 @@ public Module parse(const(dchar)[] text) {
 	}
 
 	void restartTextRange() {
+		//writeln(std.array.replicate("  ", textRangeStack.length-1), __FUNCTION__, " ", position);
 		initTextRange(currentTextRange());
 	}
 
 	TextRange endTextRange() {
+		//writeln(std.array.replicate("  ", textRangeStack.length-1), __FUNCTION__, " ", position);
 		TextRange result = currentTextRange();
 		textRangeStack = textRangeStack[0..$-1];
 		result.text = text[result.firstCharIndex..position];
@@ -113,6 +117,28 @@ public Module parse(const(dchar)[] text) {
 			assert(this.action is null);
 			this.action = action;
 			return this;
+		}
+
+		SuffixTree skipWhitespace() {
+			return oneOfChars(whitespaceChars, "restartTextRange();");
+		}
+
+		SuffixTree ignoreWhitespace() {
+			return oneOfChars(whitespaceChars, " ");
+		}
+
+		SuffixTree skipLineBreaks() {
+			return oneOfChars(lineBreakChars, "restartTextRange();");
+		}
+
+		SuffixTree ignoreLineBreaks() {
+			return oneOfChars(lineBreakChars, " ");
+		}
+
+		SuffixTree handleComments() {
+			return charSequence("//", "finishParsingLineComment();")
+			      .charSequence("/*", "finishParsingBlockComment();")
+			      .charSequence("/+", "finishParsingNestingBlockComment();");
 		}
 
 
@@ -169,16 +195,6 @@ public Module parse(const(dchar)[] text) {
 		immutable string generateParser = rulesTuple[0].generate();
 	}
 
-	SuffixTree suffixTreeThatKnowsAboutCommentsAndWhitespace() {
-		return SuffixTree()
-			.oneOfChars(whitespaceChars, "restartTextRange();")
-			.oneOfChars(lineBreakChars, "restartTextRange();")
-			.charSequence("//", "finishParsingLineComment();")
-			.charSequence("/*", "finishParsingBlockComment();")
-			.charSequence("/+", "finishParsingNestingBlockComment();");
-	}
-
-
 
 	bool isIdentifierChar(dchar c) {
 		return isAlphaNum(c) || (c == '_');
@@ -206,7 +222,7 @@ public Module parse(const(dchar)[] text) {
 	}
 
 	void finishParsingIdentifier()
-	in{
+	in {
 		assert(currentTextRange.firstCharIndex < position);
 		//assert(text[currentTextRange.firstCharIndex]);
 		//assert(identifierFirstChars.contains(currentTextRange.text[0]));
@@ -214,10 +230,6 @@ public Module parse(const(dchar)[] text) {
 		assert(!isIdentifierChar(text[position]));
 	} body {
 		while (isIdentifierChar(advance())) {}
-		//mixin(generateParser!(SuffixTree()
-		//	.oneOfChars(identifierChars, " ")
-		//	.noMatch("return;")
-		//));
 	}
 
 	void finishParsingModuleDeclaration()
@@ -246,15 +258,17 @@ public Module parse(const(dchar)[] text) {
 		void onIdentifier() {
 			finishParsingIdentifier();
 			parsedModuleName(endTextRange());
+			startTextRange();
 		}
 
 		startTextRange();
-		mixin(generateParser!(suffixTreeThatKnowsAboutCommentsAndWhitespace()
+		mixin(generateParser!(SuffixTree().skipWhitespace().skipLineBreaks().handleComments()
 			.oneOfChars(identifierFirstChars, "onIdentifier();")
-			.oneOfChars(['.'], "startTextRange();")
-			.oneOfChars([';'], "return finish();")
-			.noMatch("return fail();")
+			.oneOfChars(['.'], "restartTextRange();")
+			.oneOfChars([';'], "endTextRange(); return finish();")
+			.noMatch("endTextRange(); return fail();")
 		));
+		endTextRange();
 		fail();
 	}
 
@@ -264,14 +278,14 @@ public Module parse(const(dchar)[] text) {
 		}
 
 		startTextRange();
-		mixin(generateParser!(suffixTreeThatKnowsAboutCommentsAndWhitespace()
+		mixin(generateParser!(SuffixTree().ignoreWhitespace().ignoreLineBreaks().handleComments()
 			.oneOfChars(identifierChars, "return parseImportList(endTextRange());")
 		));
 	}
 
 	void parseDeclaration() {
 		startTextRange();
-		mixin(generateParser!(suffixTreeThatKnowsAboutCommentsAndWhitespace()
+		mixin(generateParser!(SuffixTree().skipWhitespace().skipLineBreaks().handleComments()
 			.keyword("module", "return finishParsingModuleDeclaration();", "return finishParsingIdentifier();")
 			.keyword("import", "return finishParsingImportDeclaration();", "return finishParsingIdentifier();")
 		));
