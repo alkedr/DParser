@@ -52,9 +52,9 @@ int main(string[] args) {
 		return 1;
 	}
 
-	Declaration[] declarations = parse(dtext(readText!(string)(args[1])));
+	Module m = parse(dtext(readText!(string)(args[1])));
 	auto dumper = new ASTDumpVisitor;
-	foreach (declaration; declarations) {
+	foreach (declaration; m.declarations) {
 		dumper.visit(declaration);
 	}
 

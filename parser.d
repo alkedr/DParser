@@ -4,126 +4,29 @@ public import ast;
 
 import std.ascii;
 import std.string : format;
-import std.conv : dtext;
+import std.conv;
 import std.stdio;
 import std.range;
 import std.array;
 import std.algorithm;
 
 
-private struct SuffixTree {
-	SuffixTree[dchar] _impl;
-	string action = "";
-
-	//invariant() {
-	//	assert((action != "") || (_impl.length > 0));
-	//}
-
-	SuffixTree oneOfChars(const dchar[] chars, string action) {
-		return add([chars], action);
-	}
-
-	SuffixTree charSequence(const dchar[] chars, string action) {
-		return add(splitIntoOneCharStrings(chars), action);
-	}
-
-	SuffixTree keyword(const dchar[] chars, string actionOnMatch, string actionOnMismatch) {
-		return add(splitIntoOneCharStrings(chars), actionOnMatch)
-		      .add(splitIntoOneCharStrings(chars) ~ [identifierChars], actionOnMismatch);
-	}
-
-	// TODO: token (variable length)
-	SuffixTree token(const dchar[] chars, string action) {
-		return oneOfChars(chars, /*SuffixTree().oneOfChars(chars, ) ~*/ action);
-	}
-
-	SuffixTree identifier(string action) {
-		return token(identifierChars, action);
-	}
-
-	/*SuffixTree keywords(const dchar[][] strings, string action) {
-		const(dchar[])[][] result;
-		foreach (s; strings) result ~= [splitIntoOneCharStrings(s)];
-		return result;
-	}*/
-
-	string generate() const {
-		return "size_t firstCharIndex=position+1;while(!isEOF()){" ~ code ~ "}";
-	}
-
-
-	private static const(dchar[][]) splitIntoOneCharStrings(const dchar[] chars) pure @safe nothrow {
-		dchar[][] result;
-		foreach (c; chars) result ~= [c];
-		return result;
-	}
-
-	//key - array of possible values for chars
-	//key[i] - array of possible values for char #i
-	//key[i][j] - one of possible values for char #i
-	private SuffixTree add(const(dchar[][]) key, string action) {
-		if (key.length > 0) {
-			foreach (c; key[0]) {
-				if (c !in _impl) _impl[c] = SuffixTree();
-				_impl[c].add(key[1..$], action);
-			}
-		} else {
-			assert(this.action == "");
-			this.action = action ~ "(new TextRange(firstCharIndex, line, column, text[firstCharIndex..position]));";
-		}
-		return this;
-	}
-
-	public string code() const {
-		if (_impl.length == 0) return action;
-		string result = "switch(currentChar()){";
-
-		dchar[][string] codeToCharsMap;
-		foreach (key, value; _impl) {
-			auto generatedCode = value.code;
-			if (generatedCode in codeToCharsMap) {
-				codeToCharsMap[generatedCode] ~= key;
-			} else {
-				codeToCharsMap[generatedCode] = [key];
-			}
-		}
-
-		foreach (generatedCode, chars; codeToCharsMap) {
-			foreach (c; chars) result ~= format(`case'\U%08X':`, c);
-			result ~= "{advance();" ~ generatedCode ~ "}break;";
-		}
-
-		return result ~ format(`default:{%s}break;}`, action);
-	}
+public class ParseError {
+	string text;
 }
 
-private template generateParser(rulesTuple...) {
-	immutable string generateParser = rulesTuple[0].generate();
+
+public class Module {
+	Declaration[] declarations = [];
+	ParseError[] errors = [];
 }
 
 
 
-private immutable auto identifierChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"d;
-private immutable auto whitespaceChars = "\u0020\u0009\u000B\u000C"d;
-private immutable auto lineBreakChars = "\u000D\u000A\u2028\u2029"d;
-
-
-
-private SuffixTree suffixTreeThatKnowsAboutCommentsAndWhitespace() {
-	return SuffixTree()
-		.oneOfChars(whitespaceChars, q{ firstCharIndex = position; continue; })
-		.oneOfChars(lineBreakChars, q{ firstCharIndex = position; continue; })
-		.charSequence("//", "finishParsingLineComment")
-		.charSequence("/*", "finishParsingBlockComment")
-		.charSequence("/+", "finishParsingNestingBlockComment");
-}
-
-
-
-public Declaration[] parse(const(dchar)[] text) {
+public Module parse(const(dchar)[] text) {
 	text ~= 0;
 
-	Declaration[] result;
+	auto result = new Module;
 
 	size_t position = 0;
 	size_t line = 1;
@@ -134,6 +37,120 @@ public Declaration[] parse(const(dchar)[] text) {
 	dchar currentChar() { return text[position]; }
 	dchar advance() { return isEOF() ? 0 : text[++position]; }
 
+
+
+
+	immutable auto identifierChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"d;
+	immutable auto whitespaceChars = "\u0020\u0009\u000B\u000C"d;
+	immutable auto lineBreakChars = "\u000D\u000A\u2028\u2029"d;
+
+
+
+	struct SuffixTree {
+		SuffixTree[dchar] _impl;
+		string action = "";
+
+		//invariant() {
+		//	assert((action != "") || (_impl.length > 0));
+		//}
+
+		SuffixTree oneOfChars(const dchar[] chars, string action) {
+			return add([chars], action);
+		}
+
+		SuffixTree charSequence(const dchar[] chars, string action) {
+			return add(splitIntoOneCharStrings(chars), action);
+		}
+
+		SuffixTree keyword(const dchar[] chars, string actionOnMatch, string actionOnMismatch) {
+			return add(splitIntoOneCharStrings(chars), actionOnMatch)
+			      .add(splitIntoOneCharStrings(chars) ~ [identifierChars], actionOnMismatch);
+		}
+
+		// TODO: token (variable length)
+		SuffixTree token(const dchar[] chars, string action) {
+			return oneOfChars(chars, /*SuffixTree().oneOfChars(chars, ) ~*/ action);
+		}
+
+		SuffixTree identifier(string action) {
+			return token(identifierChars, action);
+		}
+
+		/*SuffixTree keywords(const dchar[][] strings, string action) {
+			const(dchar[])[][] result;
+			foreach (s; strings) result ~= [splitIntoOneCharStrings(s)];
+			return result;
+		}*/
+
+		string generate() const {
+			return "size_t firstCharIndex=position+1;while(!isEOF()){" ~ code ~ "}";
+		}
+
+
+		private static const(dchar[][]) splitIntoOneCharStrings(const dchar[] chars) pure @safe nothrow {
+			dchar[][] result;
+			foreach (c; chars) result ~= [c];
+			return result;
+		}
+
+		//key - array of possible values for chars
+		//key[i] - array of possible values for char #i
+		//key[i][j] - one of possible values for char #i
+		private SuffixTree add(const(dchar[][]) key, string action) {
+			if (key.length > 0) {
+				foreach (c; key[0]) {
+					if (c !in _impl) _impl[c] = SuffixTree();
+					_impl[c].add(key[1..$], action);
+				}
+			} else {
+				assert(this.action == "");
+				this.action = action ~ "(new TextRange(firstCharIndex, line, column, text[firstCharIndex..position]));";
+			}
+			return this;
+		}
+
+		private string code() const {
+			if (_impl.length == 0) return action;
+			string result = "switch(currentChar()){";
+
+			dchar[][string] codeToCharsMap;
+			foreach (key, value; _impl) {
+				auto generatedCode = value.code;
+				if (generatedCode in codeToCharsMap) {
+					codeToCharsMap[generatedCode] ~= key;
+				} else {
+					codeToCharsMap[generatedCode] = [key];
+				}
+			}
+
+			foreach (generatedCode, chars; codeToCharsMap) {
+				foreach (c; chars) result ~= format(`case'\U%08X':`, c);
+				result ~= "{advance();" ~ generatedCode ~ "}break;";
+			}
+
+			return result ~ format(`default:{%s}break;}`, action);
+		}
+	}
+
+	template generateParser(rulesTuple...) {
+		immutable string generateParser = rulesTuple[0].generate();
+	}
+
+
+
+	SuffixTree suffixTreeThatKnowsAboutCommentsAndWhitespace() {
+		return SuffixTree()
+			.oneOfChars(whitespaceChars, q{ firstCharIndex = position; continue; })
+			.oneOfChars(lineBreakChars, q{ firstCharIndex = position; continue; })
+			.charSequence("//", "finishParsingLineComment")
+			.charSequence("/*", "finishParsingBlockComment")
+			.charSequence("/+", "finishParsingNestingBlockComment");
+	}
+
+
+
+
+
 	bool isIdentifierChar(dchar c) {
 		return isAlphaNum(c) || (c == '_');
 	}
@@ -143,7 +160,9 @@ public Declaration[] parse(const(dchar)[] text) {
 	}
 
 	void error(string text) {
-		//writeln("Error: ", text);
+		auto error = new ParseError;
+		error.text = text;
+		result.errors ~= error;
 	}
 
 	void finishParsingIdentifier(TextRange textRange) {
@@ -182,7 +201,7 @@ public Declaration[] parse(const(dchar)[] text) {
 			auto d = new ModuleDeclaration;
 			d.textRange = textRange;
 			d.name = text[moduleNameBegin..position];
-			result ~= d;
+			result.declarations ~= d;
 			expectSemicolon();
 		}
 
@@ -212,7 +231,7 @@ public Declaration[] parse(const(dchar)[] text) {
 
 unittest {
 	writeln("Error {");
-	Declaration[] decls = parse("module abc.def.ghi");
+	Declaration[] decls = parse("module abc.def.ghi").declarations;
 	assert(decls.length == 1);
 	{
 		ModuleDeclaration d = cast(ModuleDeclaration)decls[0];
