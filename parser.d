@@ -5,7 +5,6 @@ public import ast;
 import std.ascii;
 import std.string : format;
 import std.conv;
-import std.stdio;
 import std.range;
 import std.array;
 import std.algorithm;
@@ -162,7 +161,6 @@ public Module parse(const(dchar)[] text) {
 	}
 
 	void finishParsingIdentifier(TextRange textRange) {
-		writeln(text[0..position]);
 		assert(0);
 	}
 
@@ -222,18 +220,4 @@ public Module parse(const(dchar)[] text) {
 	));
 
 	return result;
-}
-
-
-unittest {
-	writeln("Error {");
-	Declaration[] decls = parse("module abc.def.ghi").declarations;
-	assert(decls.length == 1);
-	{
-		ModuleDeclaration d = cast(ModuleDeclaration)decls[0];
-		assert(d !is null);
-		writeln(d.name);
-		assert(d.name == "abc.def.ghi");
-	}
-	writeln("}");
 }
