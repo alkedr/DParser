@@ -268,7 +268,7 @@ public Module parse(const(dchar)[] text) {
 		mixin(generateParser!(ParserGenerator().skipWhitespace().skipLineBreaks().handleComments()
 			.identifier("d.names ~= endTextRange().text; startTextRange();")
 			.identifierThatStartsWithDigit("error(\"package name starts with digit\"); d.names ~= endTextRange().text; startTextRange();")
-			.oneOfChars(['.'], "restartTextRange();")
+			.oneOfChars(['.'], "if (d.names.empty) { error(\"module name starts with dot\"); } restartTextRange();")
 			.oneOfChars([';'], "return finish();")
 			.noMatch("return fail();")
 		));
