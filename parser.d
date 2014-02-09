@@ -249,6 +249,9 @@ public Module parse(const(dchar)[] text) {
 		void finish() {
 			endTextRange();
 			d.textRange = endTextRange();
+			if (d.names.empty) {
+				error("no module name");
+			}
 		}
 
 		void fail() {
