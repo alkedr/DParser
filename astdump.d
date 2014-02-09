@@ -14,10 +14,16 @@ class ASTDumpVisitor : Visitor {
 		return replicate("  ", level);
 	}
 
+	void textRange(TextRange t) {
+	}
+
 	void declaration(Declaration d) {
-		writefln(`%s%s (%d..%d, %d:%d):`, indent(), d.classinfo.name,
-			d.textRange.firstCharIndex, d.textRange.firstCharIndex+d.textRange.text.length,
-			d.textRange.line, d.textRange.column);
+		assert(d !is null);
+		assert(d.textRange.text !is null);
+		writefln(`%s%s (%d..%d, %d:%d..%d:%d):`, indent(), d.classinfo.name,
+			d.textRange.begin.index, d.textRange.end.index,
+			d.textRange.begin.line, d.textRange.begin.column,
+			d.textRange.end.line, d.textRange.end.column);
 	}
 
 	void field(T)(string key, T value) {

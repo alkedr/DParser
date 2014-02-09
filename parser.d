@@ -28,29 +28,21 @@ public Module parse(const(dchar)[] text) {
 
 	auto result = new Module;
 
-	size_t position = 0;
-	size_t line = 1;
-	size_t column = 1;
+	TextPosition position;
 
-	bool isEOF() { return position >= text.length-1; }
+	bool isEOF() { return position.index >= text.length-1; }
 
-	dchar currentChar() { return text[position]; }
-	dchar advance() { return isEOF() ? 0 : text[++position]; }
-	dchar getCurrentCharAndAdvance() { return isEOF() ? 0 : text[position++]; }
+	dchar currentChar() { return text[position.index]; }
+	dchar advance() { return isEOF() ? 0 : text[++position.index]; }
+	dchar getCurrentCharAndAdvance() { return isEOF() ? 0 : text[position.index++]; }
 
 
 	TextRange[] textRangeStack;
 
-	void initTextRange(ref TextRange textRange) {
-		textRange.firstCharIndex = position;
-		textRange.line = line;
-		textRange.column = column;
-	}
-
 	void startTextRange() {
 		//writeln(std.array.replicate("  ", textRangeStack.length), __FUNCTION__, " ", position);
 		auto textRange = new TextRange;
-		initTextRange(textRange);
+		textRange.begin = position;
 		textRangeStack ~= textRange;
 	}
 
@@ -61,14 +53,15 @@ public Module parse(const(dchar)[] text) {
 
 	void restartTextRange() {
 		//writeln(std.array.replicate("  ", textRangeStack.length-1), __FUNCTION__, " ", position);
-		initTextRange(currentTextRange());
+		currentTextRange().begin = position;
 	}
 
 	TextRange endTextRange() {
 		//writeln(std.array.replicate("  ", textRangeStack.length-1), __FUNCTION__, " ", position);
 		TextRange result = currentTextRange();
 		textRangeStack = textRangeStack[0..$-1];
-		result.text = text[result.firstCharIndex..position];
+		result.end = position;
+		result.text = text[result.begin.index..result.end.index+1];
 		return result;
 	}
 
@@ -223,11 +216,11 @@ public Module parse(const(dchar)[] text) {
 
 	void finishParsingIdentifier()
 	in {
-		assert(currentTextRange.firstCharIndex < position);
+		assert(currentTextRange.begin.index < position.index);
 		//assert(text[currentTextRange.firstCharIndex]);
 		//assert(identifierFirstChars.contains(currentTextRange.text[0]));
 	} out {
-		assert(!isIdentifierChar(text[position]));
+		assert(!isIdentifierChar(text[position.index]));
 	} body {
 		while (isIdentifierChar(advance())) {}
 	}
@@ -290,11 +283,6 @@ public Module parse(const(dchar)[] text) {
 			.keyword("import", "return finishParsingImportDeclaration();", "return finishParsingIdentifier();")
 		));
 	}
-
-	//writeln(SuffixTree()
-	//		.oneOfChars(identifierChars, " ")
-	//		.noMatch("return;")
-	//	.generate());
 
 
 	while (!isEOF()) {

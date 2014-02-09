@@ -14,13 +14,17 @@ abstract class Visitor {
 
 
 
-class TextRange {
-	size_t firstCharIndex;
-	size_t line;
-	size_t column;
-	const(dchar)[] text;
+struct TextPosition {
+	uint index;
+	uint line = 1;
+	uint column = 1;
+}
 
-	this() {}
+
+class TextRange {
+	TextPosition begin;
+	TextPosition end;
+	const(dchar)[] text;
 }
 
 
