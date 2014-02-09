@@ -15,12 +15,10 @@ public class ParseError {
 	string text;
 }
 
-
 public class Module {
 	Declaration[] declarations = [];
 	ParseError[] errors = [];
 }
-
 
 
 public Module parse(const(dchar)[] text) {
@@ -28,13 +26,34 @@ public Module parse(const(dchar)[] text) {
 
 	auto result = new Module;
 
+	TextPosition previousPosition;
 	TextPosition position;
 
 	bool isEOF() { return position.index >= text.length-1; }
 
 	dchar currentChar() { return text[position.index]; }
-	dchar advance() { return isEOF() ? 0 : text[++position.index]; }
-	dchar getCurrentCharAndAdvance() { return isEOF() ? 0 : text[position.index++]; }
+
+	dchar advance() {
+		if (isEOF()) return 0;
+
+		previousPosition = position;
+
+		if (((currentChar == '\u000D') && (text[position.index+1] != '\u000A')) ||
+		    (currentChar == '\u000A') || (currentChar == '\u2028') || (currentChar == '\u2028')) {
+			position.line++;
+			position.column = 1;
+		} else {
+			position.column++;
+		}
+
+		return text[++position.index];
+	}
+
+	dchar getCurrentCharAndAdvance() {
+		auto result = currentChar();
+		advance();
+		return result;
+	}
 
 
 	TextRange[] textRangeStack;
@@ -60,7 +79,7 @@ public Module parse(const(dchar)[] text) {
 		//writeln(std.array.replicate("  ", textRangeStack.length-1), __FUNCTION__, " ", position);
 		TextRange result = currentTextRange();
 		textRangeStack = textRangeStack[0..$-1];
-		result.end = position;
+		result.end = previousPosition;
 		result.text = text[result.begin.index..result.end.index+1];
 		return result;
 	}
