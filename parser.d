@@ -125,6 +125,10 @@ public Module parse(const(dchar)[] text) {
 			);
 		}
 
+		SuffixTree identifier(string action) {
+			return oneOfChars(identifierFirstChars, "while(isIdentifierChar(advance())){}" ~ action);
+		}
+
 		SuffixTree noMatch(string action) {
 			assert(this.action is null);
 			this.action = action;
@@ -233,33 +237,22 @@ public Module parse(const(dchar)[] text) {
 		assert(0);
 	}
 
-	void finishParsingIdentifier()
-	in {
-		assert(currentTextRange.begin.index < position.index);
-		//assert(text[currentTextRange.firstCharIndex]);
-		//assert(identifierFirstChars.contains(currentTextRange.text[0]));
-	} out {
-		assert(!isIdentifierChar(text[position.index]));
-	} body {
+	void finishParsingIdentifier() {
 		while (isIdentifierChar(advance())) {}
 	}
 
-	void finishParsingModuleDeclaration()
+	auto finishParsingModuleDeclaration()
 	in {
 		//assert(moduleKeywordTextRange.text == "module");
 		//assert(position == moduleKeywordTextRange.firstCharIndex + moduleKeywordTextRange.text.length);
 	}
 	body {
 		auto d = new ModuleDeclaration;
-
-		void parsedModuleName(TextRange textRange) {
-			if (d.name.length > 0) d.name ~= '.';
-			d.name ~= textRange.text;
-		}
+		result.declarations ~= d;
 
 		void finish() {
+			endTextRange();
 			d.textRange = endTextRange();
-			result.declarations ~= d;
 		}
 
 		void fail() {
@@ -268,19 +261,20 @@ public Module parse(const(dchar)[] text) {
 		}
 
 		void onIdentifier() {
-			finishParsingIdentifier();
-			parsedModuleName(endTextRange());
+			TextRange textRange = endTextRange();
+			if (d.name.length > 0) d.name ~= '.';
+			d.name ~= textRange.text;
+
 			startTextRange();
 		}
 
 		startTextRange();
 		mixin(generateParser!(SuffixTree().skipWhitespace().skipLineBreaks().handleComments()
-			.oneOfChars(identifierFirstChars, "onIdentifier();")
+			.identifier("onIdentifier();")
 			.oneOfChars(['.'], "restartTextRange();")
-			.oneOfChars([';'], "endTextRange(); return finish();")
-			.noMatch("endTextRange(); return fail();")
+			.oneOfChars([';'], "return finish();")
+			.noMatch("return fail();")
 		));
-		endTextRange();
 		fail();
 	}
 
