@@ -86,8 +86,9 @@ public Module parse(const(dchar)[] text) {
 
 
 
+	immutable auto digits = "0123456789"d;
 	immutable auto identifierFirstChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"d;
-	immutable auto identifierChars = identifierFirstChars ~ "0123456789"d;
+	immutable auto identifierChars = identifierFirstChars ~ digits;
 	immutable auto whitespaceChars = "\u0020\u0009\u000B\u000C"d;
 	immutable auto lineBreakChars = "\u000D\u000A\u2028\u2029"d;
 
@@ -123,6 +124,10 @@ public Module parse(const(dchar)[] text) {
 
 		ParserGenerator identifier(string action) {
 			return oneOfChars(identifierFirstChars, "while(isIdentifierChar(advance())){}" ~ action);
+		}
+
+		ParserGenerator identifierThatStartsWithDigit(string action) {
+			return oneOfChars(digits, "while(isIdentifierChar(advance())){}" ~ action);
 		}
 
 		ParserGenerator noMatch(string action) {
@@ -262,6 +267,7 @@ public Module parse(const(dchar)[] text) {
 		startTextRange();
 		mixin(generateParser!(ParserGenerator().skipWhitespace().skipLineBreaks().handleComments()
 			.identifier("d.names ~= endTextRange().text; startTextRange();")
+			.identifierThatStartsWithDigit("error(\"package name starts with digit\"); d.names ~= endTextRange().text; startTextRange();")
 			.oneOfChars(['.'], "restartTextRange();")
 			.oneOfChars([';'], "return finish();")
 			.noMatch("return fail();")
