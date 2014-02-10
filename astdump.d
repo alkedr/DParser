@@ -7,33 +7,34 @@ import std.conv : text, dtext, to;
 import std.array : replicate;
 
 
+string textRange(TextRange t) {
+	return format("%d..%d  %d:%d..%d:%d", t.begin.index, t.end.index,
+		t.begin.line, t.begin.column, t.end.line, t.end.column);
+}
+
+
+int level = 0;
+
+string indent() {
+	return replicate("  ", level);
+}
+
+void field(T)(string key, T value) {
+	writefln(`%s%s: '%s'`, indent(), key, to!string(value));
+}
+
 class ASTDumpVisitor : Visitor {
-	int level = 0;
-
-	string indent() {
-		return replicate("  ", level);
-	}
-
-	void textRange(TextRange t) {
-	}
 
 	void declaration(Declaration d) {
 		assert(d !is null);
-		assert(d.textRange.text !is null);
-		writefln(`%s%s (%d..%d, %d:%d..%d:%d):`, indent(), d.classinfo.name,
-			d.textRange.begin.index, d.textRange.end.index,
-			d.textRange.begin.line, d.textRange.begin.column,
-			d.textRange.end.line, d.textRange.end.column);
-	}
-
-	void field(T)(string key, T value) {
-		writefln(`%s%s: '%s'`, indent(), key, to!string(value));
+		writefln(`%s%s '%s':`, indent(), d.classinfo.name, d.textRange.text);
 	}
 
 	override public void visit(ModuleDeclaration element) {
 		declaration(element);
 
 		level++;
+		field("textRange", textRange(element.textRange));
 		field("name", element.name);
 		field("packageNames", element.packageNames);
 		element.accept(this);
@@ -61,7 +62,10 @@ int main(string[] args) {
 
 	Module m = parse(dtext(readText!(string)(args[1])));
 	foreach (error; m.errors) {
-		writeln("Error: ", error.text);
+		writeln("'", error.textRange.text , "': error: ", error.message);
+		level++;
+		field("textRange", textRange(error.textRange));
+		level--;
 	}
 	auto dumper = new ASTDumpVisitor;
 	foreach (declaration; m.declarations) {

@@ -1,4 +1,6 @@
-Error: no module name
-ast.ModuleDeclaration (0..6, 1:1..1:7):
+'module;': error: no module name
+  textRange: '0..7  1:1..1:8'
+ast.ModuleDeclaration 'module;':
+  textRange: '0..7  1:1..1:8'
   name: ''
   packageNames: '[""]'

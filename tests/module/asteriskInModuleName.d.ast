@@ -1,4 +1,6 @@
-Error: missing semicolon
-ast.ModuleDeclaration (0..9, 1:1..1:10):
+'*': error: expected '.' or ';', found '*'
+  textRange: '13..14  1:14..1:15'
+ast.ModuleDeclaration 'module ab':
+  textRange: '0..9  1:1..1:10'
   name: 'ab'
   packageNames: '["ab"]'

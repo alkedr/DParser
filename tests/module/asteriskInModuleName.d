@@ -1,1 +1,1 @@
-module ab*c.def.ghi;
+module ab    * c.def.ghi;

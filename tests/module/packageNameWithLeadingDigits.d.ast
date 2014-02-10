@@ -1,13 +1,6 @@
-Error: package name starts with digit
-Error: package name starts with digit
-Error: package name starts with digit
-Error: package name starts with digit
-Error: package name starts with digit
-Error: package name starts with digit
-Error: package name starts with digit
-Error: package name starts with digit
-Error: package name starts with digit
-Error: package name starts with digit
-ast.ModuleDeclaration (0..36, 1:1..1:37):
+'module 0a.1b.2c.3d.4e.5f.6g.7h.8i.9k;': error: invalid module name
+  textRange: '0..37  1:1..1:38'
+ast.ModuleDeclaration 'module 0a.1b.2c.3d.4e.5f.6g.7h.8i.9k;':
+  textRange: '0..37  1:1..1:38'
   name: '0a.1b.2c.3d.4e.5f.6g.7h.8i.9k'
   packageNames: '["0a", "1b", "2c", "3d", "4e", "5f", "6g", "7h", "8i", "9k"]'

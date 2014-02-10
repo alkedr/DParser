@@ -1,4 +1,6 @@
-Error: missing semicolon
-ast.ModuleDeclaration (0..18, 1:1..1:19):
+'': error: expected '.' or ';', found end of file
+  textRange: '19..19  2:1..2:1'
+ast.ModuleDeclaration 'module abc.def.ghi':
+  textRange: '0..18  1:1..1:19'
   name: 'abc.def.ghi'
   packageNames: '["abc", "def", "ghi"]'

@@ -12,7 +12,8 @@ import std.algorithm;
 
 
 public class ParseError {
-	string text;
+	string message;
+	TextRange textRange;
 }
 
 public class Module {
@@ -23,19 +24,23 @@ public class Module {
 
 public Module parse(const(dchar)[] text) {
 	text ~= 0;
+	text ~= 0;
 
 	auto result = new Module;
 
+	TextPosition positionBeforeThat;
 	TextPosition previousPosition;
 	TextPosition position;
 
 	bool isEOF() { return position.index >= text.length-1; }
 
 	dchar currentChar() { return text[position.index]; }
+	dchar previousChar() { return text[previousPosition.index]; }
 
 	dchar advance() {
 		if (isEOF()) return 0;
 
+		positionBeforeThat = previousPosition;
 		previousPosition = position;
 
 		if (((currentChar == '\u000D') && (text[position.index+1] != '\u000A')) ||
@@ -55,9 +60,15 @@ public Module parse(const(dchar)[] text) {
 		return result;
 	}
 
+	void goToPreviousChar() {
+		position = previousPosition;
+		previousPosition = positionBeforeThat;
+	}
+
 
 	TextRange[] textRangeStack;
 
+	// new range starts with current char
 	void startTextRange() {
 		//writeln(std.array.replicate("  ", textRangeStack.length), __FUNCTION__, " ", position);
 		TextRange textRange;
@@ -70,24 +81,26 @@ public Module parse(const(dchar)[] text) {
 		return textRangeStack[$-1];
 	}
 
+	// range starts with current char
 	void restartTextRange() {
 		//writeln(std.array.replicate("  ", textRangeStack.length-1), __FUNCTION__, " ", position);
 		currentTextRange().begin = position;
 	}
 
-	void restartTextRangeIncludingCurrentChar() {
+	// range starts with previous char
+	void restartTextRangeIncludingPreviousChar() {
 		currentTextRange().begin = previousPosition;
 	}
 
+	// range ends with previous char
 	TextRange endTextRange() {
 		//writeln(std.array.replicate("  ", textRangeStack.length-1), __FUNCTION__, " ", position);
 		TextRange result = currentTextRange();
 		textRangeStack = textRangeStack[0..$-1];
-		result.end = previousPosition;
-		result.text = text[result.begin.index..result.end.index+1];
+		result.end = position;
+		result.text = text[result.begin.index .. result.end.index];
 		return result;
 	}
-
 
 
 	immutable auto digits = "0123456789"d;
@@ -132,11 +145,11 @@ public Module parse(const(dchar)[] text) {
 		}
 
 		ParserGenerator identifier(string action) {
-			return oneOfChars(identifierFirstChars, "startTextRange(); restartTextRangeIncludingCurrentChar(); while(isIdentifierChar(advance())){}" ~ action);
+			return oneOfChars(identifierFirstChars, "startTextRange(); restartTextRangeIncludingPreviousChar(); while(isIdentifierChar(advance())){}" ~ action);
 		}
 
 		ParserGenerator identifierThatCanStartWithDigit(string action) {
-			return oneOfChars(identifierChars, "startTextRange(); restartTextRangeIncludingCurrentChar(); while(isIdentifierChar(advance())){}" ~ action);
+			return oneOfChars(identifierChars, "startTextRange(); restartTextRangeIncludingPreviousChar(); while(isIdentifierChar(advance())){}" ~ action);
 		}
 
 		ParserGenerator noMatch(string action) {
@@ -230,9 +243,14 @@ public Module parse(const(dchar)[] text) {
 		return (c == '\u0020') || (c == '\u0009') || (c == '\u000B') || (c == '\u000C');
 	}
 
-	void error(string text) {
+	void error(dstring message, TextRange textRange = TextRange(previousPosition, position)) {
+		if (isEOF()) {
+			textRange.end = previousPosition;
+		}
+		textRange.text = text[textRange.begin.index .. textRange.end.index];
 		auto error = new ParseError;
-		error.text = text;
+		error.message = std.conv.text(message);
+		error.textRange = textRange;
 		result.errors ~= error;
 	}
 
@@ -259,35 +277,109 @@ public Module parse(const(dchar)[] text) {
 	body {
 		auto d = new ModuleDeclaration;
 		result.declarations ~= d;
+		TextPosition moduleKeywordEnd = position;
 
-		mixin(generateParser!(ParserGenerator("P1").ignoreWhitespace().ignoreLineBreaks().handleComments()
-			.identifierThatCanStartWithDigit(
-				"d.packageNames ~= endTextRange();" ~
-				ParserGenerator("P2").ignoreWhitespace().ignoreLineBreaks().handleComments()
-					.oneOfChars(['.'], "break P2;")
-					.oneOfChars([';'], "break P1;")
-					.noMatch("error(`missing semicolon`); break P1;")
-					.generate()
-			)
-			.oneOfChars(['.'], "startTextRange(); d.packageNames ~= endTextRange();")
-			.oneOfChars([';'], "startTextRange(); d.packageNames ~= endTextRange(); break P1;")
-			.noMatch("error(`missing semicolon`); break P1;")
-		));
+		//mixin(generateParser!(ParserGenerator("P1").ignoreWhitespace().ignoreLineBreaks().handleComments()
+		//	.identifierThatCanStartWithDigit(
+		//		"d.packageNames ~= endTextRange();" ~
+		//		ParserGenerator("P2").ignoreWhitespace().ignoreLineBreaks().handleComments()
+		//			.oneOfChars(['.'], "break P2;")
+		//			.oneOfChars([';'], "d.textRange = endTextRange(); break P1;")
+		//			.oneOfChars([0], "error(`expected '.' or ';', found end of file`);         goToPreviousChar(); d.textRange = endTextRange(); if (!d.packageNames.empty) { d.textRange.end = d.packageNames[$-1].end; } else { d.textRange.end = moduleKeywordEnd; } break P1;")
+		//			.noMatch(        "error(`expected '.' or ';', found '`d~previousChar~`'`); goToPreviousChar(); d.textRange = endTextRange(); if (!d.packageNames.empty) { d.textRange.end = d.packageNames[$-1].end; } else { d.textRange.end = moduleKeywordEnd; } break P1;")
+		//			.generate()
+		//	)
+		//	.oneOfChars(['.'], "startTextRange(); d.packageNames ~= endTextRange();")
+		//	.oneOfChars([';'], "startTextRange(); d.packageNames ~= endTextRange(); d.textRange = endTextRange(); break P1;")
+		//	.oneOfChars([0], "error(`expected package name, found end of file`);         goToPreviousChar(); d.textRange = endTextRange(); if (!d.packageNames.empty) { d.textRange.end = d.packageNames[$-1].end; } else { d.textRange.end = moduleKeywordEnd; } break P1;")
+		//	.noMatch(        "error(`expected package name, found '`d~previousChar~`'`); goToPreviousChar(); d.textRange = endTextRange(); if (!d.packageNames.empty) { d.textRange.end = d.packageNames[$-1].end; } else { d.textRange.end = moduleKeywordEnd; } break P1;")
+		//));
 
-		if (d.name.empty) {
-			error(`no module name`);
-		} else {
-			foreach (packageName; d.packageNames) {
-				if (packageName.empty) {
-					error("empty package name");
-				} else if (isDigit(packageName[0])) {
-					error("package name starts with digit");
-				}
+
+		TextRange createTextRange(TextPosition begin, TextPosition end) {
+			TextRange result;
+			result.begin = begin;
+			result.end = end;
+			result.text = text[begin.index .. end.index];
+			return result;
+		}
+
+		TextRange emptyRangeStartingFromPreviousChar() {
+			return createTextRange(previousPosition, previousPosition);
+		}
+
+		TextRange parseIdentifierStartingFromPreviousChar() {
+			TextPosition begin = previousPosition;
+			while (isIdentifierChar(advance())) {}
+			return createTextRange(begin, position);
+		}
+
+		void errorExpected(dstring expected) {
+			if (previousChar == 0) {
+				error(dtext(format("expected %s, found end of file", expected)));
+			} else {
+				error(dtext(format("expected %s, found '%c'", expected, previousChar)));
 			}
 		}
 
+		bool shouldSkip(dchar c) {
+			switch (c) {
+				case'\U00000020':  // FIXME: move to advance()
+				case'\U0000000C':
+				case'\U00002028':
+				case'\U00000009':
+				case'\U0000000D':
+				case'\U00002029':
+				case'\U0000000A':
+				case'\U0000000B':
+					return true;
+				default:
+					return false;
+			}
+		}
+
+		dchar advanceSkipping() {
+			do {
+				advance();
+			} while (shouldSkip(previousChar));
+			return previousChar;
+		}
+
+		while (true) {
+			advanceSkipping();
+			if (isIdentifierChar(previousChar)) {
+				d.packageNames ~= parseIdentifierStartingFromPreviousChar();
+				advanceSkipping();
+				if (previousChar != '.') {
+					if (previousChar != ';') {
+						errorExpected("'.' or ';'");
+						goToPreviousChar();
+					}
+					break;
+				}
+			} else if ((previousChar == '.') || (previousChar == ';')) {
+				d.packageNames ~= emptyRangeStartingFromPreviousChar();
+			} else {
+				errorExpected("package name");
+				goToPreviousChar();
+			}
+			if (!isIdentifierChar(previousChar) && (previousChar != '.')) break;
+		}
+
 		d.textRange = endTextRange();
-	}
+		if (previousChar() != ';') {
+			d.textRange.end = d.packageNames.empty ? moduleKeywordEnd : d.packageNames[$-1].end;
+			d.textRange.text = text[d.textRange.begin.index .. d.textRange.end.index];
+		}
+
+		if (d.name.empty) {
+			error(`no module name`, d.textRange);
+		} else {
+			if (!find!(packageName => packageName.empty || isDigit(packageName[0]))(d.packageNames).empty) {
+				error("invalid module name", d.textRange);
+			}
+		}
+	}// Todo missing dot test
 
 	void finishParsingImportDeclaration() {
 		void parseImportList(TextRange textRange) {

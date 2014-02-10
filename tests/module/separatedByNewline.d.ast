@@ -1,3 +1,5 @@
-ast.ModuleDeclaration (0..18, 1:1..2:12):
+ast.ModuleDeclaration 'module
+abc.def.ghi;':
+  textRange: '0..19  1:1..2:13'
   name: 'abc.def.ghi'
   packageNames: '["abc", "def", "ghi"]'

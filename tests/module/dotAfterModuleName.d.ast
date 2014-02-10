@@ -1,4 +1,6 @@
-Error: empty package name
-ast.ModuleDeclaration (0..19, 1:1..1:20):
+'module abc.def.ghi.;': error: invalid module name
+  textRange: '0..20  1:1..1:21'
+ast.ModuleDeclaration 'module abc.def.ghi.;':
+  textRange: '0..20  1:1..1:21'
   name: 'abc.def.ghi.'
   packageNames: '["abc", "def", "ghi", ""]'

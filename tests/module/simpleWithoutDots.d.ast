@@ -1,0 +1,4 @@
+ast.ModuleDeclaration 'module	 abc 	;':
+  textRange: '0..14  1:1..1:15'
+  name: 'abc'
+  packageNames: '["abc"]'

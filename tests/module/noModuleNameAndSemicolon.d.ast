@@ -1,5 +1,8 @@
-Error: missing semicolon
-Error: no module name
-ast.ModuleDeclaration (0..6, 1:1..1:7):
+'': error: expected package name, found end of file
+  textRange: '7..7  2:1..2:1'
+'module': error: no module name
+  textRange: '0..6  1:1..1:7'
+ast.ModuleDeclaration 'module':
+  textRange: '0..6  1:1..1:7'
   name: ''
   packageNames: '[]'
