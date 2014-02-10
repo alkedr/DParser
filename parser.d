@@ -75,6 +75,10 @@ public Module parse(const(dchar)[] text) {
 		currentTextRange().begin = position;
 	}
 
+	void restartTextRangeIncludingCurrentChar() {
+		currentTextRange().begin = previousPosition;
+	}
+
 	TextRange endTextRange() {
 		//writeln(std.array.replicate("  ", textRangeStack.length-1), __FUNCTION__, " ", position);
 		TextRange result = currentTextRange();
@@ -128,11 +132,11 @@ public Module parse(const(dchar)[] text) {
 		}
 
 		ParserGenerator identifier(string action) {
-			return oneOfChars(identifierFirstChars, "while(isIdentifierChar(advance())){}" ~ action);
+			return oneOfChars(identifierFirstChars, "startTextRange(); restartTextRangeIncludingCurrentChar(); while(isIdentifierChar(advance())){}" ~ action);
 		}
 
-		ParserGenerator identifierThatStartsWithDigit(string action) {
-			return oneOfChars(digits, "while(isIdentifierChar(advance())){}" ~ action);
+		ParserGenerator identifierThatCanStartWithDigit(string action) {
+			return oneOfChars(identifierChars, "startTextRange(); restartTextRangeIncludingCurrentChar(); while(isIdentifierChar(advance())){}" ~ action);
 		}
 
 		ParserGenerator noMatch(string action) {
@@ -165,7 +169,7 @@ public Module parse(const(dchar)[] text) {
 
 
 		string generate() const {
-			return whilePrefix ~ "while(!isEOF()){" ~ code ~ "}";
+			return whilePrefix ~ "while(true){" ~ code ~ "}";
 		}
 
 		//key - array of possible values for chars
@@ -256,22 +260,35 @@ public Module parse(const(dchar)[] text) {
 		auto d = new ModuleDeclaration;
 		result.declarations ~= d;
 
-		startTextRange();
-		mixin(generateParser!(ParserGenerator("P1").skipWhitespace().skipLineBreaks().handleComments()
-			.identifier(
-				"d.names ~= endTextRange().text; if (d.names[$-1].empty) { error(\"empty package name\"); } startTextRange();" ~
-				ParserGenerator("P2").skipWhitespace().skipLineBreaks().handleComments()
-					.oneOfChars(['.'], "restartTextRange(); break P2;")   // stops inner parser
-					.oneOfChars([';'], "break P1;")                   // stops both parsers
+		mixin(generateParser!(ParserGenerator("P1").ignoreWhitespace().ignoreLineBreaks().handleComments()
+			.identifierThatCanStartWithDigit(
+				q{ d.names ~= endTextRange().text; } ~
+				ParserGenerator("P2").ignoreWhitespace().ignoreLineBreaks().handleComments()
+					.oneOfChars(['.'], "break P2;")  // stops inner parser
+					.oneOfChars([';'], "break P1;")  // stops both parsers
+					.noMatch("error(\"missing semicolon\"); break P1;")
 					.generate()
 			)
+			.oneOfChars(['.'], q{ d.names ~= ``; })
+			.oneOfChars([';'], q{
+				if (!d.names.empty) { d.names ~= ``; }
+				break P1;
+			})
+			.noMatch(q{ error(`missing semicolon`); break P1; })
 		));
-		endTextRange();
+
+		if (d.names.empty) {
+			error(`no module name`);
+		}
+		foreach (packageName; d.names) {
+			if (packageName.empty) {
+				error("empty package name");
+			} else if (isDigit(packageName[0])) {
+				error("package name starts with digit");
+			}
+		}
 
 		d.textRange = endTextRange();
-		if (d.names.empty) {
-			error("no module name");
-		}
 	}
 
 	void finishParsingImportDeclaration() {
@@ -282,6 +299,7 @@ public Module parse(const(dchar)[] text) {
 		startTextRange();
 		mixin(generateParser!(ParserGenerator().ignoreWhitespace().ignoreLineBreaks().handleComments()
 			.oneOfChars(identifierChars, "return parseImportList(endTextRange());")
+			//.noMatch
 		));
 	}
 
@@ -290,6 +308,8 @@ public Module parse(const(dchar)[] text) {
 		mixin(generateParser!(ParserGenerator().skipWhitespace().skipLineBreaks().handleComments()
 			.keyword("module", "return finishParsingModuleDeclaration();", "return finishParsingIdentifier();")
 			.keyword("import", "return finishParsingImportDeclaration();", "return finishParsingIdentifier();")
+			.oneOfChars([0], "return;")
+			.noMatch("/*error(`expected declaration`);*/ return;")
 		));
 	}
 

@@ -1,4 +1,4 @@
-Error: no module name
 Error: missing semicolon
+Error: no module name
 ast.ModuleDeclaration (0..6, 1:1..1:7):
   name: ''
