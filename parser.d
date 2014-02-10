@@ -262,29 +262,27 @@ public Module parse(const(dchar)[] text) {
 
 		mixin(generateParser!(ParserGenerator("P1").ignoreWhitespace().ignoreLineBreaks().handleComments()
 			.identifierThatCanStartWithDigit(
-				q{ d.names ~= endTextRange().text; } ~
+				"d.names ~= endTextRange().text;" ~
 				ParserGenerator("P2").ignoreWhitespace().ignoreLineBreaks().handleComments()
-					.oneOfChars(['.'], "break P2;")  // stops inner parser
-					.oneOfChars([';'], "break P1;")  // stops both parsers
-					.noMatch("error(\"missing semicolon\"); break P1;")
+					.oneOfChars(['.'], "break P2;")
+					.oneOfChars([';'], "break P1;")
+					.noMatch("error(`missing semicolon`); break P1;")
 					.generate()
 			)
-			.oneOfChars(['.'], q{ d.names ~= ``; })
-			.oneOfChars([';'], q{
-				if (!d.names.empty) { d.names ~= ``; }
-				break P1;
-			})
-			.noMatch(q{ error(`missing semicolon`); break P1; })
+			.oneOfChars(['.'], "d.names ~= ``;")
+			.oneOfChars([';'], "d.names ~= ``; break P1;")
+			.noMatch("error(`missing semicolon`); break P1;")
 		));
 
-		if (d.names.empty) {
+		if (d.name.empty) {
 			error(`no module name`);
-		}
-		foreach (packageName; d.names) {
-			if (packageName.empty) {
-				error("empty package name");
-			} else if (isDigit(packageName[0])) {
-				error("package name starts with digit");
+		} else {
+			foreach (packageName; d.names) {
+				if (packageName.empty) {
+					error("empty package name");
+				} else if (isDigit(packageName[0])) {
+					error("package name starts with digit");
+				}
 			}
 		}
 
