@@ -60,7 +60,7 @@ public Module parse(const(dchar)[] text) {
 
 	void startTextRange() {
 		//writeln(std.array.replicate("  ", textRangeStack.length), __FUNCTION__, " ", position);
-		auto textRange = new TextRange;
+		TextRange textRange;
 		textRange.begin = position;
 		textRangeStack ~= textRange;
 	}
@@ -262,22 +262,22 @@ public Module parse(const(dchar)[] text) {
 
 		mixin(generateParser!(ParserGenerator("P1").ignoreWhitespace().ignoreLineBreaks().handleComments()
 			.identifierThatCanStartWithDigit(
-				"d.names ~= endTextRange().text;" ~
+				"d.packageNames ~= endTextRange();" ~
 				ParserGenerator("P2").ignoreWhitespace().ignoreLineBreaks().handleComments()
 					.oneOfChars(['.'], "break P2;")
 					.oneOfChars([';'], "break P1;")
 					.noMatch("error(`missing semicolon`); break P1;")
 					.generate()
 			)
-			.oneOfChars(['.'], "d.names ~= ``;")
-			.oneOfChars([';'], "d.names ~= ``; break P1;")
+			.oneOfChars(['.'], "startTextRange(); d.packageNames ~= endTextRange();")
+			.oneOfChars([';'], "startTextRange(); d.packageNames ~= endTextRange(); break P1;")
 			.noMatch("error(`missing semicolon`); break P1;")
 		));
 
 		if (d.name.empty) {
 			error(`no module name`);
 		} else {
-			foreach (packageName; d.names) {
+			foreach (packageName; d.packageNames) {
 				if (packageName.empty) {
 					error("empty package name");
 				} else if (isDigit(packageName[0])) {

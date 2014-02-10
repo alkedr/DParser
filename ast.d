@@ -23,10 +23,12 @@ struct TextPosition {
 }
 
 
-class TextRange {
+struct TextRange {
 	TextPosition begin;
 	TextPosition end;
 	const(dchar)[] text;
+
+	alias text this;
 }
 
 
@@ -40,9 +42,9 @@ class Declaration : Element {
 }
 
 class ModuleDeclaration : Declaration {
-	const(dchar)[][] names;
+	TextRange[] packageNames;
 
-	@property const(dchar)[] name() { return join(names, "."d); }
+	@property const(dchar)[] name() { return join(packageNames, "."d); }
 }
 
 class Import : Declaration {
