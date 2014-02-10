@@ -97,6 +97,11 @@ public Module parse(const(dchar)[] text) {
 	struct ParserGenerator {
 		ParserGenerator[dchar] rules;
 		string action;
+		string whilePrefix;
+
+		this(string whileLabel = null) {
+			this.whilePrefix = whileLabel ~ ":";
+		}
 
 		ParserGenerator oneOfChars(const dchar[] chars, string action) {
 			return add([chars], action);
@@ -160,7 +165,7 @@ public Module parse(const(dchar)[] text) {
 
 
 		string generate() const {
-			return "while(!isEOF()){" ~ code ~ "}";
+			return whilePrefix ~ "while(!isEOF()){" ~ code ~ "}";
 		}
 
 		//key - array of possible values for chars
@@ -251,33 +256,22 @@ public Module parse(const(dchar)[] text) {
 		auto d = new ModuleDeclaration;
 		result.declarations ~= d;
 
-		bool shouldBeIdentifier = true;
-
-		void finish() {
-			endTextRange();
-			d.textRange = endTextRange();
-			if (d.names.empty) {
-				error("no module name");
-			} else if (shouldBeIdentifier) {
-				error("empty package name");
-				d.names ~= "";
-			}
-		}
-
-		void fail() {
-			finish();
-			error("missing semicolon");
-		}
-
 		startTextRange();
-		mixin(generateParser!(ParserGenerator().skipWhitespace().skipLineBreaks().handleComments()
-			.identifier("d.names ~= endTextRange().text; startTextRange(); shouldBeIdentifier = false;")
-			.identifierThatStartsWithDigit("error(\"package name starts with digit\"); d.names ~= endTextRange().text; startTextRange(); shouldBeIdentifier = false;")
-			.oneOfChars(['.'], "if (shouldBeIdentifier) { d.names ~= \"\"; error(\"empty package name\"); } restartTextRange(); shouldBeIdentifier = true;")
-			.oneOfChars([';'], "return finish();")
-			.noMatch("return fail();")
+		mixin(generateParser!(ParserGenerator("P1").skipWhitespace().skipLineBreaks().handleComments()
+			.identifier(
+				"d.names ~= endTextRange().text; if (d.names[$-1].empty) { error(\"empty package name\"); } startTextRange();" ~
+				ParserGenerator("P2").skipWhitespace().skipLineBreaks().handleComments()
+					.oneOfChars(['.'], "restartTextRange(); break P2;")   // stops inner parser
+					.oneOfChars([';'], "break P1;")                   // stops both parsers
+					.generate()
+			)
 		));
-		fail();
+		endTextRange();
+
+		d.textRange = endTextRange();
+		if (d.names.empty) {
+			error("no module name");
+		}
 	}
 
 	void finishParsingImportDeclaration() {
