@@ -1,2 +1,3 @@
 ast.ModuleDeclaration (0..18, 1:1..1:19):
   name: 'abc.def.ghi'
+  packageNames: '["abc", "def", "ghi"]'

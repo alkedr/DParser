@@ -1,3 +1,4 @@
 Error: empty package name
 ast.ModuleDeclaration (0..17, 1:1..1:18):
   name: 'abc..ghi'
+  packageNames: '["abc", "", "ghi"]'

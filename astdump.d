@@ -35,6 +35,7 @@ class ASTDumpVisitor : Visitor {
 
 		level++;
 		field("name", element.name);
+		field("packageNames", element.packageNames);
 		element.accept(this);
 		level--;
 	}
