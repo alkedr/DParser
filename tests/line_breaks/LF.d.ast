@@ -5,12 +5,10 @@ ast.ModuleDeclaration 'module
 	 .
 	 ghi
  	;':
-  textRange: '2..38  1:3..7:4'
   ast.ModuleName 'abc
 	 .
 	 def
 	 .
 	 ghi':
-    textRange: '11..34  2:3..6:6'
     name: 'abc.def.ghi'
     parts: '["abc", "def", "ghi"]'

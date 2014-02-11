@@ -31,7 +31,6 @@ class ASTDumpVisitor : Visitor {
 		assert(d.textRange !is null);
 		writefln(`%s%s '%s':`, indent(), d.classinfo.name, d.textRange);
 		level++;
-		field("textRange", textRange(d.textRange));
 	}
 
 	void stop() {

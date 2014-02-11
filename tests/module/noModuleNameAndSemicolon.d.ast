@@ -3,8 +3,6 @@
 'module': error: no module name
   textRange: '0..6  1:1..1:7'
 ast.ModuleDeclaration 'module':
-  textRange: '0..6  1:1..1:7'
   ast.ModuleName '':
-    textRange: '7..7  2:1..2:1'
     name: ''
     parts: '[""]'

@@ -1,8 +1,6 @@
 ast.ImportDeclaration 'import xyz = abc.def.ghi;':
-  textRange: '0..19  1:1..1:20'
   isStatic: 'false'
   ast.Import 'xyz = abc.def.ghi':
-    textRange: '7..18  1:8..1:19'
     aliasName: 'xyz'
     moduleName: 'abc.def.ghi'
     importBind: '[]'

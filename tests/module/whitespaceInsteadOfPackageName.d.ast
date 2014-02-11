@@ -1,8 +1,6 @@
 'module abc. 	.ghi;': error: invalid module name
   textRange: '0..18  1:1..1:19'
 ast.ModuleDeclaration 'module abc. 	.ghi;':
-  textRange: '0..18  1:1..1:19'
   ast.ModuleName 'abc. 	.ghi':
-    textRange: '7..17  1:8..1:18'
     name: 'abc..ghi'
     parts: '["abc", "", "ghi"]'
