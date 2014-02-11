@@ -28,7 +28,6 @@ public Module parse(const(dchar)[] text) {
 	auto result = new Module;
 
 
-
 	void advancePositionNoSkip(ref TextPosition position) {
 		auto current = text[position.index];
 		if ((current == '\u0000') || (current == '\u001A')) return;
@@ -80,9 +79,6 @@ public Module parse(const(dchar)[] text) {
 	void advance() {
 		previousPosition = currentPosition;
 		currentPosition = nextPosition;
-
-		//writeln("new current char ", cast(int)currentChar);
-
 		advancePosition(nextPosition);
 	}
 
@@ -97,42 +93,6 @@ public Module parse(const(dchar)[] text) {
 		nextPosition = currentPosition;
 		advancePosition(nextPosition);
 	}
-
-/*
-	// new range starts with current char
-	void startTextRange() {
-		//writeln(std.array.replicate("  ", textRangeStack.length), __FUNCTION__, " ", currentPosition);
-		TextRange textRange;
-		textRange.begin = currentPosition;
-		textRangeStack ~= textRange;
-	}
-
-	ref TextRange currentTextRange() {
-		assert(textRangeStack.length > 0);
-		return textRangeStack[$-1];
-	}
-
-	// range starts with current char
-	void restartTextRange() {
-		//writeln(std.array.replicate("  ", textRangeStack.length-1), __FUNCTION__, " ", currentPosition);
-		currentTextRange().begin = currentPosition;
-	}
-
-	// range starts with previous char
-	void restartTextRangeIncludingPreviousChar() {
-		currentTextRange().begin = previousPosition;
-	}
-
-	// range ends with previous char
-	TextRange endTextRange() {
-		//writeln(std.array.replicate("  ", textRangeStack.length-1), __FUNCTION__, " ", currentPosition);
-		TextRange result = currentTextRange();
-		textRangeStack = textRangeStack[0..$-1];
-		result.end = currentPosition;
-		result.text = text[result.begin.index .. result.end.index];
-		return result;
-	}
-*/
 
 
 	struct ParserGenerator {
@@ -151,7 +111,7 @@ public Module parse(const(dchar)[] text) {
 
 		ParserGenerator onKeyword(const dchar[] chars, string actionOnMatch, string actionOnMismatch) {
 			return onCharSequence(chars,
-				"if(isIdentifierChar(currentChar())){" ~ actionOnMismatch ~ "}else{" ~ actionOnMatch ~ "}"
+				"if(isAlphaNum(currentChar)||(currentChar=='_')){" ~ actionOnMismatch ~ "}else{" ~ actionOnMatch ~ "}"
 			);
 		}
 
@@ -174,14 +134,6 @@ public Module parse(const(dchar)[] text) {
 		immutable string generateParser = rulesTuple[0].code;
 	}
 
-
-	bool isIdentifierChar(dchar c) {
-		return isAlphaNum(c) || (c == '_');
-	}
-
-	bool isWhitespaceChar(dchar c) {
-		return (c == '\u0020') || (c == '\u0009') || (c == '\u000B') || (c == '\u000C');
-	}
 
 	void error(string message, TextRange textRange = TextRange(previousPosition, currentPosition)) {
 		if (textRange.end.index >= text.length-1) {
@@ -223,28 +175,16 @@ public Module parse(const(dchar)[] text) {
 	}
 
 
-	Declaration finishParsingLineComment() {
-		assert(0);
-	}
-	Declaration finishParsingBlockComment() {
-		assert(0);
-	}
-	Declaration finishParsingNestingBlockComment() {
-		assert(0);
-	}
-
 	TextRange parseIdentifier() {
 		skipCrap();
-		//writeln(__FUNCTION__, " ", currentChar);
 		TextRange result;
 		result.begin = currentPosition;
-		while (isIdentifierChar(currentChar)) {  // TODO: can't start with digit
+		while (isAlphaNum(currentChar) || (currentChar == '_')) {  // TODO: can't start with digit
 			advanceNoSkip();
 		}
 		result.end = currentPosition;
 		result.text = text[result.begin.index .. result.end.index];
 		skipCrap();
-		//writeln(__FUNCTION__, " ", result.text);
 		return result;
 	}
 
@@ -257,69 +197,50 @@ public Module parse(const(dchar)[] text) {
 		}
 	}
 
-	void finishParsingModuleDeclaration(TextPosition begin)
-	in {
-		//assert(moduleKeywordTextRange.text == "module");
-		//assert(currentPosition == moduleKeywordTextRange.firstCharIndex + moduleKeywordTextRange.text.length);
-	}
-	body {
-		auto d = new ModuleDeclaration;
-		d.textRange.begin = begin;
-		d.textRange.end = currentPosition;
-		result.declarations ~= d;
-
-		do {
-			d.packageNames ~= parseIdentifier();
-		} while (parseChar('.'));
-
-		if (parseChar(';')) {
-			d.textRange.end = currentPosition;
-		} else {
-			errorExpectedChars(['.', ';']);
-			if (!d.name.empty) {
-				d.textRange.end = d.packageNames[$-1].end;
-			}
-		}
-
-		d.textRange.text = text[d.textRange.begin.index .. d.textRange.end.index];
-
-		if (d.name.empty) {
-			error(`no module name`, d.textRange);
-		} else {
-			if (!find!(packageName => packageName.empty || isDigit(packageName[0]))(d.packageNames).empty) {
-				error("invalid module name", d.textRange);
-			}
-		}
-	}// Todo missing dot test
-
-	void finishParsingImportDeclaration(TextPosition begin) {
-		/*void parseImportList(TextRange textRange) {
-			assert(0);
-		}
-
-		startTextRange();
-		mixin(generateParser!(ParserGenerator().ignoreWhitespace().ignoreLineBreaks().handleComments()
-			.oneOfChars(identifierChars, "return parseImportList(endTextRange());")
-			//.noMatch
-		));*/
-	}
-
-	//writeln(ParserGenerator()
-	//		.onKeyword("module", "return finishParsingModuleDeclaration();", "return finishParsingIdentifier();")
-	//		.onKeyword("import", "return finishParsingImportDeclaration();", "return finishParsingIdentifier();")
-	//		.onNoMatch("/*error(`expected declaration`);*/ writeln(`onNoMatch`) return;").code);
-
 	void parseDeclaration() {
+
+		void finishParsingModuleDeclaration(TextPosition begin) {
+			auto d = new ModuleDeclaration;
+			d.textRange.begin = begin;
+			d.textRange.end = currentPosition;
+			result.declarations ~= d;
+
+			do {
+				d.packageNames ~= parseIdentifier();
+			} while (parseChar('.'));
+
+			if (parseChar(';')) {
+				d.textRange.end = currentPosition;
+			} else {
+				errorExpectedChars(['.', ';']);
+				if (!d.name.empty) {
+					d.textRange.end = d.packageNames[$-1].end;
+				}
+			}
+
+			d.textRange.text = text[d.textRange.begin.index .. d.textRange.end.index];
+
+			if (d.name.empty) {
+				error(`no module name`, d.textRange);
+			} else {
+				if (!find!(packageName => packageName.empty || isDigit(packageName[0]))(d.packageNames).empty) {
+					error("invalid module name", d.textRange);
+				}
+			}
+		}
+
+		void finishParsingImportDeclaration(TextPosition begin) {
+		}
+
 		skipCrap();
 		TextPosition begin = currentPosition;
 		mixin(generateParser!(ParserGenerator()
 			.onKeyword("module", "return finishParsingModuleDeclaration(begin);", "")
 			.onKeyword("import", "return finishParsingImportDeclaration(begin);", "")
-			.onNoMatch("/*error(`expected declaration`);*/ return;")
+			.onNoMatch("return;")
 		));
 	}
 
-	//writeln("initial nextPosition.index: ", nextPosition.index);
 	while (!isEOF()) {
 		parseDeclaration();
 	}
