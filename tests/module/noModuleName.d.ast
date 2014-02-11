@@ -2,5 +2,7 @@
   textRange: '0..7  1:1..1:8'
 ast.ModuleDeclaration 'module;':
   textRange: '0..7  1:1..1:8'
-  name: ''
-  packageNames: '[""]'
+  ast.ModuleName '':
+    textRange: '6..6  1:7..1:7'
+    name: ''
+    parts: '[""]'

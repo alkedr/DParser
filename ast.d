@@ -7,12 +7,15 @@ import std.algorithm : map;
 abstract class Visitor {
 	public void visit(Element element) {
 		if (cast(ModuleDeclaration)element) visit(cast(ModuleDeclaration)element);
+		else if (cast(ModuleName)element) visit(cast(ModuleName) element);
+		else if (cast(Import)element) visit(cast(Import) element);
 		else if (cast(ImportDeclaration)element) visit(cast(ImportDeclaration) element);
 	}
 
 	public void visit(ModuleDeclaration element) { element.accept(this); }
 	public void visit(ImportDeclaration element) { element.accept(this); }
 	public void visit(Import element) { element.accept(this); }
+	public void visit(ModuleName element) { element.accept(this); }
 }
 
 
@@ -75,11 +78,15 @@ class ModuleName : Element {
 
 class ModuleDeclaration : Declaration {
 	ModuleName name;
+
+	override public void accept(Visitor visitor) {
+		visitor.visit(name);
+	}
 }
 
 class Import : Declaration {
 	Identifier aliasName;
-	ModuleName name;
+	ModuleName moduleName;
 	Identifier[] importBind;
 }
 

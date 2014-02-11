@@ -8,6 +8,7 @@ import std.array : replicate;
 
 
 string textRange(TextRange t) {
+	assert(t !is null);
 	return format("%d..%d  %d:%d..%d:%d", t.begin.index, t.end.index,
 		t.begin.line, t.begin.column, t.end.line, t.end.column);
 }
@@ -25,29 +26,41 @@ void field(T)(string key, T value) {
 
 class ASTDumpVisitor : Visitor {
 
-	void declaration(Declaration d) {
+	void start(Element d) {
 		assert(d !is null);
+		assert(d.textRange !is null);
 		writefln(`%s%s '%s':`, indent(), d.classinfo.name, d.textRange);
+		level++;
+		field("textRange", textRange(d.textRange));
+	}
+
+	void stop() {
+		level--;
+	}
+
+	override public void visit(ModuleName element) {
+		start(element); scope(exit) { element.accept(this); stop(); }
+
+		field("name", element.name);
+		field("parts", element.parts);
 	}
 
 	override public void visit(ModuleDeclaration element) {
-		declaration(element);
-
-		level++;
-		field("textRange", textRange(element.textRange));
-		field("name", element.name);
-		field("packageNames", element.name.parts);
-		element.accept(this);
-		level--;
+		start(element); scope(exit) { element.accept(this); stop(); }
 	}
 
 	override public void visit(ImportDeclaration element) {
-		declaration(element);
+		start(element); scope(exit) { element.accept(this); stop(); }
 
-		level++;
 		field("isStatic", element.isStatic);
-		element.accept(this);
-		level--;
+	}
+
+	override public void visit(Import element) {
+		start(element); scope(exit) { element.accept(this); stop(); }
+
+		field("aliasName", element.aliasName);
+		field("moduleName", element.moduleName);
+		field("importBind", element.importBind);
 	}
 
 	alias Visitor.visit visit;

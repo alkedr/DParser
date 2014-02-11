@@ -1,4 +1,6 @@
 ast.ModuleDeclaration 'module 	abc	 .	 def	 .	 ghi 	;':
   textRange: '2..38  1:3..7:4'
-  name: 'abc.def.ghi'
-  packageNames: '["abc", "def", "ghi"]'
+  ast.ModuleName 'abc	 .	 def	 .	 ghi':
+    textRange: '11..34  2:3..6:6'
+    name: 'abc.def.ghi'
+    parts: '["abc", "def", "ghi"]'

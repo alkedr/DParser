@@ -1,4 +1,6 @@
 ast.ModuleDeclaration 'module	 abc 	;':
   textRange: '0..14  1:1..1:15'
-  name: 'abc'
-  packageNames: '["abc"]'
+  ast.ModuleName 'abc':
+    textRange: '8..11  1:9..1:12'
+    name: 'abc'
+    parts: '["abc"]'

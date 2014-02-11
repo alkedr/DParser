@@ -238,6 +238,7 @@ Module parse(dstring text) {
 			do {
 				moduleName.parts ~= parseIdentifier();
 			} while (parseChar('.'));
+			moduleName.textRange = TextRange(text, moduleName.parts[0].textRange.begin, moduleName.parts[$-1].textRange.end);
 			return moduleName;
 		}
 
@@ -264,14 +265,35 @@ Module parse(dstring text) {
 			}
 		}
 
-		void finishParsingImportDeclaration(TextPosition begin) {
+		void finishParsingImportDeclaration(TextPosition begin, bool isStatic) {
+			auto d = newDeclaration!(ImportDeclaration)(begin, currentPosition);
+			d.isStatic = isStatic;
+
+			auto moduleName = parseModuleName();
+
+			if (parseChar(';')) {
+				d.textRange.end = currentPosition;
+				auto i = new Import;
+				i.textRange = moduleName.textRange;
+				i.moduleName = moduleName;
+				d.imports ~= i;
+			} else if (parseChar(',')) {
+				assert(0);
+			} else if (parseChar(':')) {
+				assert(0);
+			} else {
+				errorExpectedChars(['.', ',', ':', ';']);
+				if (!moduleName.empty) {
+					d.textRange.end = moduleName.parts[$-1].textRange.end;
+				}
+			}
 		}
 
 		skipCrap();
 		TextPosition begin = currentPosition;
 		mixin(generateParser!(ParserGenerator()
 			.onKeyword("module", "return finishParsingModuleDeclaration(begin);", "")
-			.onKeyword("import", "return finishParsingImportDeclaration(begin);", "")
+			.onKeyword("import", "return finishParsingImportDeclaration(begin, false);", "")
 			.onNoMatch("return;")
 		));
 	}

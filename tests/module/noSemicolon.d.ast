@@ -2,5 +2,7 @@
   textRange: '19..19  2:1..2:1'
 ast.ModuleDeclaration 'module abc.def.ghi':
   textRange: '0..18  1:1..1:19'
-  name: 'abc.def.ghi'
-  packageNames: '["abc", "def", "ghi"]'
+  ast.ModuleName 'abc.def.ghi':
+    textRange: '7..18  1:8..1:19'
+    name: 'abc.def.ghi'
+    parts: '["abc", "def", "ghi"]'
