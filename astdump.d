@@ -27,7 +27,7 @@ class ASTDumpVisitor : Visitor {
 
 	void declaration(Declaration d) {
 		assert(d !is null);
-		writefln(`%s%s '%s':`, indent(), d.classinfo.name, d.textRange.text);
+		writefln(`%s%s '%s':`, indent(), d.classinfo.name, d.textRange);
 	}
 
 	override public void visit(ModuleDeclaration element) {
@@ -62,7 +62,7 @@ int main(string[] args) {
 
 	Module m = parse(dtext(readText!(string)(args[1])));
 	foreach (error; m.errors) {
-		writeln("'", error.textRange.text , "': error: ", error.message);
+		writeln("'", error.textRange , "': error: ", error.message);
 		level++;
 		field("textRange", textRange(error.textRange));
 		level--;

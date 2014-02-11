@@ -4,28 +4,28 @@ public import ast;
 
 import std.ascii;
 import std.string : format;
-import std.conv;
-import std.range;
 import std.array;
 import std.stdio;
 import std.algorithm;
 
 
-public class ParseError {
-	string message;
-	TextRange textRange;
+public struct ParseError {
+	const string message;
+	const TextRange textRange;
 }
 
 public class Module {
-	Declaration[] declarations = [];
-	ParseError[] errors = [];
+	Declaration[] declarations;
+	ParseError[] errors;
+	dstring text;
 }
 
 
-public Module parse(const(dchar)[] text) {
+Module parse(dstring text) {
 	text ~= 0;
 
-	auto result = new Module;
+	Module m = new Module;
+	m.text = text;
 
 
 	void advancePositionNoSkip(ref TextPosition position) {
@@ -42,11 +42,38 @@ public Module parse(const(dchar)[] text) {
 		position.index++;
 	}
 
+	void skipLineComment() {
+	}
+
+	void skipBlockComment() {
+	}
+
+	void skipNestingBlockComment() {
+	}
+
 	void skipCrapForPosition(ref TextPosition position) {
-		while ((text[position.index] == '\u000D') || (text[position.index] == '\u000A') ||
-		       (text[position.index] == '\u2028') || (text[position.index] == '\u2029') ||
-		       (text[position.index] == '\u0020') || (text[position.index] == '\u0009') ||
-		       (text[position.index] == '\u000B') || (text[position.index] == '\u000C')) {
+		while (true) {
+			switch (text[position.index]) {
+				case '\u000D':
+				case '\u000A':
+				case '\u2028':
+				case '\u2029':
+				case '\u0020':
+				case '\u0009':
+				case '\u000B':
+				case '\u000C':
+					break;
+
+				case '/':
+					switch (text[position.index+1]) {
+						case '/': skipLineComment();
+						case '*': skipBlockComment();
+						case '+': skipNestingBlockComment();
+						default: return;
+					}
+
+				default: return;
+			}
 			advancePositionNoSkip(position);
 		}
 	}
@@ -135,20 +162,16 @@ public Module parse(const(dchar)[] text) {
 	}
 
 
-	void error(string message, TextRange textRange = TextRange(previousPosition, currentPosition)) {
+	void error(string message, TextRange textRange = TextRange(text, previousPosition, currentPosition)) {
 		if (textRange.end.index >= text.length-1) {
 			assert(isEOF);
 			textRange.end = currentPosition;
 		}
-		textRange.text = text[textRange.begin.index .. textRange.end.index];
-		auto error = new ParseError;
-		error.message = message;
-		error.textRange = textRange;
-		result.errors ~= error;
+		m.errors ~= ParseError(message, textRange);
 	}
 
 	void errorExpected(string message) {
-		TextRange textRange = TextRange(currentPosition, currentPosition);
+		TextRange textRange = TextRange(text, currentPosition, currentPosition);
 		if (currentChar == 0) {
 			error(format("expected " ~ message ~ ", found end of file"), textRange);
 		} else {
@@ -177,15 +200,13 @@ public Module parse(const(dchar)[] text) {
 
 	TextRange parseIdentifier() {
 		skipCrap();
-		TextRange result;
-		result.begin = currentPosition;
+		auto begin = currentPosition;
 		while (isAlphaNum(currentChar) || (currentChar == '_')) {  // TODO: can't start with digit
 			advanceNoSkip();
 		}
-		result.end = currentPosition;
-		result.text = text[result.begin.index .. result.end.index];
+		auto end = currentPosition;
 		skipCrap();
-		return result;
+		return TextRange(text, begin, end);
 	}
 
 	bool parseChar(dchar c) {
@@ -201,9 +222,8 @@ public Module parse(const(dchar)[] text) {
 
 		void finishParsingModuleDeclaration(TextPosition begin) {
 			auto d = new ModuleDeclaration;
-			d.textRange.begin = begin;
-			d.textRange.end = currentPosition;
-			result.declarations ~= d;
+			d.textRange = TextRange(text, begin, currentPosition);
+			m.declarations ~= d;
 
 			do {
 				d.packageNames ~= parseIdentifier();
@@ -217,8 +237,6 @@ public Module parse(const(dchar)[] text) {
 					d.textRange.end = d.packageNames[$-1].end;
 				}
 			}
-
-			d.textRange.text = text[d.textRange.begin.index .. d.textRange.end.index];
 
 			if (d.name.empty) {
 				error(`no module name`, d.textRange);
@@ -244,10 +262,6 @@ public Module parse(const(dchar)[] text) {
 	while (!isEOF()) {
 		parseDeclaration();
 	}
-
-	return result;
+	return m;
 }
 
-unittest {
-	parse("");
-}

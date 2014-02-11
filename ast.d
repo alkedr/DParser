@@ -1,6 +1,7 @@
 module ast;
 
 import std.array : join;
+import std.algorithm : map;
 
 
 abstract class Visitor {
@@ -26,9 +27,20 @@ struct TextPosition {
 struct TextRange {
 	TextPosition begin;
 	TextPosition end;
-	const(dchar)[] text;
+	private const(dchar)[] wholeText;
 
-	alias text this;
+	this(const(dchar)[] wholeText, TextPosition begin = TextPosition(), TextPosition end = TextPosition()) {
+		this.wholeText = wholeText;
+		this.begin = begin;
+		this.end = end;
+	}
+
+	@property const(dchar)[] textInRange() const {
+		assert(wholeText !is null);
+		return wholeText[begin.index .. end.index];
+	}
+
+	alias textInRange this;
 }
 
 
@@ -44,7 +56,7 @@ class Declaration : Element {
 class ModuleDeclaration : Declaration {
 	TextRange[] packageNames;
 
-	@property const(dchar)[] name() { return join(packageNames, "."d); }
+	@property const(dchar)[] name() { return packageNames.map!(x => x.textInRange).join("."d); }
 }
 
 class Import : Declaration {
