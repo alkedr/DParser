@@ -198,7 +198,7 @@ Module parse(dstring text) {
 	}
 
 
-	TextRange parseIdentifier() {
+	Identifier parseIdentifier() {
 		skipCrap();
 		auto begin = currentPosition;
 		while (isAlphaNum(currentChar) || (currentChar == '_')) {  // TODO: can't start with digit
@@ -206,7 +206,9 @@ Module parse(dstring text) {
 		}
 		auto end = currentPosition;
 		skipCrap();
-		return TextRange(text, begin, end);
+		auto result = new Identifier;
+		result.textRange = TextRange(text, begin, end);
+		return result;
 	}
 
 	bool parseChar(dchar c) {
@@ -218,30 +220,45 @@ Module parse(dstring text) {
 		}
 	}
 
+
+
+
+
 	void parseDeclaration() {
 
-		void finishParsingModuleDeclaration(TextPosition begin) {
-			auto d = new ModuleDeclaration;
-			d.textRange = TextRange(text, begin, currentPosition);
+		T newDeclaration(T)(TextPosition begin, TextPosition end) {
+			auto d = new T;
+			d.textRange = TextRange(text, begin, end);
 			m.declarations ~= d;
+			return d;
+		}
 
+		ModuleName parseModuleName() {
+			auto moduleName = new ModuleName;
 			do {
-				d.packageNames ~= parseIdentifier();
+				moduleName.parts ~= parseIdentifier();
 			} while (parseChar('.'));
+			return moduleName;
+		}
+
+		void finishParsingModuleDeclaration(TextPosition begin) {
+			auto d = newDeclaration!(ModuleDeclaration)(begin, currentPosition);
+
+			d.name = parseModuleName();
 
 			if (parseChar(';')) {
 				d.textRange.end = currentPosition;
 			} else {
 				errorExpectedChars(['.', ';']);
 				if (!d.name.empty) {
-					d.textRange.end = d.packageNames[$-1].end;
+					d.textRange.end = d.name.parts[$-1].textRange.end;
 				}
 			}
 
 			if (d.name.empty) {
 				error(`no module name`, d.textRange);
 			} else {
-				if (!find!(packageName => packageName.empty || isDigit(packageName[0]))(d.packageNames).empty) {
+				if (!find!(packageName => packageName.textRange.empty || isDigit(packageName.textRange[0]))(d.name.parts).empty) {
 					error("invalid module name", d.textRange);
 				}
 			}

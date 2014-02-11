@@ -44,25 +44,43 @@ struct TextRange {
 }
 
 
+
 class Element {
+	TextRange textRange;
+
 	public void accept(Visitor visitor) {}
 }
 
 
 class Declaration : Element {
-	TextRange textRange;
 }
 
-class ModuleDeclaration : Declaration {
-	TextRange[] packageNames;
 
-	@property const(dchar)[] name() { return packageNames.map!(x => x.textInRange).join("."d); }
+class Identifier : Element {
+	alias textRange this;
+}
+
+
+class ModuleName : Element {
+	Identifier[] parts;
+
+	@property const(dchar)[] name() {
+		return parts.map!(x => x.textRange.textInRange).join("."d);
+	}
+
+	alias name this;
+}
+
+
+
+class ModuleDeclaration : Declaration {
+	ModuleName name;
 }
 
 class Import : Declaration {
-	const(dchar)[] aliasName;
-	const(dchar)[] moduleName;
-	const(dchar)[][] importBind;
+	Identifier aliasName;
+	ModuleName name;
+	Identifier[] importBind;
 }
 
 class ImportDeclaration : Declaration {
