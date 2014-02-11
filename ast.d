@@ -87,7 +87,7 @@ class ModuleDeclaration : Declaration {
 class Import : Declaration {
 	Identifier aliasName;
 	ModuleName moduleName;
-	Identifier[] importBind;
+	Identifier[] symbols;
 }
 
 class ImportDeclaration : Declaration {

@@ -5,4 +5,4 @@ ast.ImportDeclaration 'import abc.def.ghi;':
     textRange: '7..18  1:8..1:19'
     aliasName: 'null'
     moduleName: 'abc.def.ghi'
-    importBind: '[]'
+    symbols: '[]'

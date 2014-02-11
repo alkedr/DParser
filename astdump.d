@@ -60,7 +60,7 @@ class ASTDumpVisitor : Visitor {
 
 		field("aliasName", element.aliasName);
 		field("moduleName", element.moduleName);
-		field("importBind", element.importBind);
+		field("symbols", element.symbols);
 	}
 
 	alias Visitor.visit visit;

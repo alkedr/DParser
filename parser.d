@@ -278,9 +278,9 @@ Module parse(dstring text) {
 				i.moduleName = moduleName;
 				d.imports ~= i;
 			} else if (parseChar(',')) {
-				assert(0);
+				//assert(0);
 			} else if (parseChar(':')) {
-				assert(0);
+				//assert(0);
 			} else {
 				errorExpectedChars(['.', ',', ':', ';']);
 				if (!moduleName.empty) {
