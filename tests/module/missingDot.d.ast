@@ -1,0 +1,6 @@
+'g': error: expected '.' or ';', found 'g'
+  textRange: '15..16  1:16..1:17'
+ast.ModuleDeclaration 'module abc.def':
+  textRange: '0..14  1:1..1:15'
+  name: 'abc.def'
+  packageNames: '["abc", "def"]'
