@@ -57,7 +57,6 @@ class ASTDumpVisitor : Visitor {
 		start(element); scope(exit) { element.accept(this); stop(); }
 
 		field("aliasName", element.aliasName);
-		field("moduleName", element.moduleName);
 	}
 
 	override public void visit(ImportSymbol element) {

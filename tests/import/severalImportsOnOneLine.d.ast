@@ -2,7 +2,6 @@ ast.ImportDeclaration 'import abc;':
   isStatic: 'false'
   ast.Import 'abc':
     aliasName: 'null'
-    moduleName: 'abc'
     ast.ModuleName 'abc':
       name: 'abc'
       parts: '["abc"]'
@@ -10,7 +9,6 @@ ast.ImportDeclaration 'import abc.def;':
   isStatic: 'false'
   ast.Import 'abc.def':
     aliasName: 'null'
-    moduleName: 'abc.def'
     ast.ModuleName 'abc.def':
       name: 'abc.def'
       parts: '["abc", "def"]'
@@ -18,7 +16,6 @@ ast.ImportDeclaration 'import abc.def.ghi;':
   isStatic: 'false'
   ast.Import 'abc.def.ghi':
     aliasName: 'null'
-    moduleName: 'abc.def.ghi'
     ast.ModuleName 'abc.def.ghi':
       name: 'abc.def.ghi'
       parts: '["abc", "def", "ghi"]'

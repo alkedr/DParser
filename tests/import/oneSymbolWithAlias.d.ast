@@ -2,7 +2,6 @@ ast.ImportDeclaration 'import xyz = abc.def.ghi;':
   isStatic: 'false'
   ast.Import 'xyz = abc.def.ghi':
     aliasName: 'xyz'
-    moduleName: 'abc.def.ghi'
     ast.ModuleName 'abc.def.ghi':
       name: 'abc.def.ghi'
       parts: '["abc", "def", "ghi"]'
