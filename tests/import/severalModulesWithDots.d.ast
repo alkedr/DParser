@@ -1,11 +1,11 @@
 ast.ImportDeclaration 'import f.abc, f.xyz, f.v1;':
   isStatic: 'false'
-  ast.Import 'f.xyz':
+  ast.Import 'f.abc':
     aliasName: 'null'
-    moduleName: 'f.xyz'
-    ast.ModuleName 'f.xyz':
-      name: 'f.xyz'
-      parts: '["f", "xyz"]'
+    moduleName: 'f.abc'
+    ast.ModuleName 'f.abc':
+      name: 'f.abc'
+      parts: '["f", "abc"]'
   ast.Import 'f.xyz':
     aliasName: 'null'
     moduleName: 'f.xyz'

@@ -227,9 +227,9 @@ Module parse(dstring text) {
 	void parseDeclaration() {
 
 		T startParsing(T)(const ref TextPosition begin = currentPosition) {
+			skipCrap();
 			auto t = new T;
 			t.textRange = TextRange(text, begin, currentPosition);
-			skipCrap();
 			return t;
 		}
 
@@ -267,14 +267,14 @@ Module parse(dstring text) {
 
 			d.name = parseModuleName();
 
-			if (parseChar(';')) {
-				d.textRange.end = currentPosition;
-			} else {
+			if (!parseChar(';')) {
 				errorExpectedChars(['.', ';']);
 				if (!d.name.empty) {
 					d.textRange.end = d.name.parts[$-1].textRange.end;
 				}
 			}
+
+			endParsing(d);
 
 			if (d.name.empty) {
 				error(`no module name`, d.textRange);
@@ -285,10 +285,7 @@ Module parse(dstring text) {
 			}
 		}
 
-		void finishParsingImportDeclaration(TextPosition begin, bool isStatic) {
-			auto d = startParsingDeclaration!(ImportDeclaration)(begin);
-			d.isStatic = isStatic;
-
+		Import parseImport() {
 			auto i = startParsing!(Import);
 			auto identifier = parseIdentifier();
 			if (parseChar('=')) {
@@ -298,7 +295,7 @@ Module parse(dstring text) {
 				i.moduleName = finishParsingModuleName(identifier);
 			}
 			if (parseChar(':')) {
-				while (currentChar != ';') {
+				do {
 					auto symbolNameOrAlias = parseIdentifier();
 					auto symbol = startParsing!(ImportSymbol)(symbolNameOrAlias.textRange.begin);
 					if (parseChar('=')) {
@@ -308,12 +305,21 @@ Module parse(dstring text) {
 						symbol.name = symbolNameOrAlias;
 					}
 					i.symbols ~= endParsing(symbol);
-					if (!parseChar(',')) break;
-				}
+				} while (parseChar(','));
 			}
-			if (currentChar == ';') {
-				d.imports ~= endParsing(i, previousPosition);
-				advanceNoSkip();
+			return endParsing(i, previousPosition);
+		}
+
+		void finishParsingImportDeclaration(TextPosition begin, bool isStatic) {
+			auto d = startParsingDeclaration!(ImportDeclaration)(begin);
+			d.isStatic = isStatic;
+
+			do {
+				d.imports ~= parseImport();
+			} while (parseChar(','));
+
+			if (!parseChar(';')) {
+				//error
 			}
 
 			endParsing(d);

@@ -18,8 +18,8 @@ abstract class Visitor {
 		"ModuleDeclaration",
 		"ModuleName",
 		"Import",
+		"ImportDeclaration",
 		"ImportSymbol",
-		"ImportDeclaration"
 	));
 };
 
