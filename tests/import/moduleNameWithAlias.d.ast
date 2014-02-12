@@ -1,0 +1,8 @@
+ast.ImportDeclaration 'import xyz=abc;':
+  isStatic: 'false'
+  ast.Import 'xyz=abc':
+    aliasName: 'xyz'
+    moduleName: 'abc'
+    ast.ModuleName 'abc':
+      name: 'abc'
+      parts: '["abc"]'

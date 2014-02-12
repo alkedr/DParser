@@ -1,0 +1,20 @@
+ast.ImportDeclaration 'import abc, xyz, v1;':
+  isStatic: 'false'
+  ast.Import 'xyz':
+    aliasName: 'null'
+    moduleName: 'xyz'
+    ast.ModuleName 'xyz':
+      name: 'xyz'
+      parts: '["xyz"]'
+  ast.Import 'xyz':
+    aliasName: 'null'
+    moduleName: 'xyz'
+    ast.ModuleName 'xyz':
+      name: 'xyz'
+      parts: '["xyz"]'
+  ast.Import 'v1':
+    aliasName: 'null'
+    moduleName: 'v1'
+    ast.ModuleName 'v1':
+      name: 'v1'
+      parts: '["v1"]'
