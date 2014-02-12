@@ -26,9 +26,8 @@ void field(T)(string key, T value) {
 
 class ASTDumpVisitor : Visitor {
 
-	void start(Element d) {
+	void start(TextRange d) {
 		assert(d !is null);
-		assert(d.textRange !is null);
 		writefln(`%s%s '%s':`, indent(), d.classinfo.name, d.textInRange);
 		level++;
 	}

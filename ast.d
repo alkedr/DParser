@@ -3,14 +3,15 @@ module ast;
 import std.array : join;
 import std.algorithm : map;
 import std.string : format;
+import std.traits : isArray, isBasicType;
 
 
 template generateAbstractVisitor(classNames...) {
 	immutable string generateAbstractVisitor =
-		"public void visit(Element element) {" ~
-			[classNames].map!(s => format("if (cast(%1$s)element) visit(cast(%1$s)element);", s)).join("else ") ~
+		"public void visit(TextRange e) {" ~
+			[classNames].map!(s => format("if (cast(%1$s)e) visit(cast(%1$s)e);", s)).join("else ") ~
 		"}" ~
-		[classNames].map!(s => format("public void visit(%s element) { element.accept(this); }", s)).join();
+		[classNames].map!(s => format("public void visit(%s e) { e.accept(this); }", s)).join();
 }
 
 abstract class Visitor {
@@ -36,9 +37,7 @@ class TextRange {
 	TextPosition end;
 	const(dchar)[] wholeText;
 
-	this() {}
-
-	this(const(dchar)[] wholeText, TextPosition begin = TextPosition(), TextPosition end = TextPosition()) {
+	this(const(dchar)[] wholeText = null, TextPosition begin = TextPosition(), TextPosition end = TextPosition()) {
 		this.wholeText = wholeText;
 		this.begin = begin;
 		this.end = end;
@@ -51,21 +50,31 @@ class TextRange {
 }
 
 
-class Element : TextRange {
-	public void accept(Visitor visitor) {}
+class Element(T) : TextRange {
+	public final void accept(Visitor visitor) {
+		foreach (field; (cast(T)this).tupleof) {
+			static if (isArray!(typeof(field))) {
+				foreach (arrayItem; field) {
+					if (arrayItem !is null) visitor.visit(arrayItem);
+				}
+			} else static if (!isBasicType!(typeof(field))) {
+				if (field !is null) visitor.visit(field);
+			}
+		}
+	}
 }
 
 
-class Declaration : Element {
+class Declaration : Element!(Declaration) {
 }
 
 
-class Identifier : Element {
+class Identifier : Element!(Identifier) {
 	alias textInRange this;
 }
 
 
-class ModuleName : Element {
+class ModuleName : Element!(ModuleName) {
 	Identifier[] parts;
 
 	@property const(dchar)[] name() {
@@ -77,40 +86,22 @@ class ModuleName : Element {
 
 
 
-class ModuleDeclaration : Declaration {
+class ModuleDeclaration : Element!(ModuleDeclaration) {
 	ModuleName name;
-
-	override public void accept(Visitor visitor) {
-		visitor.visit(name);
-	}
 }
 
-class ImportSymbol : Element {
+class ImportSymbol : Element!(ImportSymbol) {
 	Identifier aliasName;
 	Identifier name;
 }
 
-class Import : Element {
+class Import : Element!(Import) {
 	Identifier aliasName;
 	ModuleName moduleName;
 	ImportSymbol[] symbols;
-
-	override public void accept(Visitor visitor) {
-		visitor.visit(moduleName);
-		foreach (symbol; symbols) {
-			visitor.visit(symbol);
-		}
-	}
 }
 
-class ImportDeclaration : Declaration {
+class ImportDeclaration : Element!(ImportDeclaration) {
 	bool isStatic;
 	Import[] imports;
-
-	override public void accept(Visitor visitor) {
-		foreach (i; imports) {
-			visitor.visit(i);
-		}
-	}
 }
-
