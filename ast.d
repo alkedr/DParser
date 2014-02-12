@@ -24,6 +24,18 @@ abstract class Visitor {
 	));
 };
 
+void accept(T)(T element, Visitor visitor) {
+	foreach (field; (cast(T)element).tupleof) {
+		static if (isArray!(typeof(field))) {
+			foreach (arrayItem; field) {
+				if (arrayItem !is null) visitor.visit(arrayItem);
+			}
+		} else static if (!isBasicType!(typeof(field))) {
+			if (field !is null) visitor.visit(field);
+		}
+	}
+}
+
 
 struct TextPosition {
 	uint index;
@@ -50,31 +62,20 @@ class TextRange {
 }
 
 
-class Element(T) : TextRange {
-	public final void accept(Visitor visitor) {
-		foreach (field; (cast(T)this).tupleof) {
-			static if (isArray!(typeof(field))) {
-				foreach (arrayItem; field) {
-					if (arrayItem !is null) visitor.visit(arrayItem);
-				}
-			} else static if (!isBasicType!(typeof(field))) {
-				if (field !is null) visitor.visit(field);
-			}
-		}
-	}
+class Element : TextRange {
 }
 
 
-class Declaration : Element!(Declaration) {
+class Declaration : Element {
 }
 
 
-class Identifier : Element!(Identifier) {
+class Identifier : Element {
 	alias textInRange this;
 }
 
 
-class ModuleName : Element!(ModuleName) {
+class ModuleName : Element {
 	Identifier[] parts;
 
 	@property const(dchar)[] name() {
@@ -84,24 +85,22 @@ class ModuleName : Element!(ModuleName) {
 	alias name this;
 }
 
-
-
-class ModuleDeclaration : Element!(ModuleDeclaration) {
+class ModuleDeclaration : Declaration {
 	ModuleName name;
 }
 
-class ImportSymbol : Element!(ImportSymbol) {
+class ImportSymbol : Element {
 	Identifier aliasName;
 	Identifier name;
 }
 
-class Import : Element!(Import) {
+class Import : Element {
 	Identifier aliasName;
 	ModuleName moduleName;
 	ImportSymbol[] symbols;
 }
 
-class ImportDeclaration : Element!(ImportDeclaration) {
+class ImportDeclaration : Declaration {
 	bool isStatic;
 	Import[] imports;
 }

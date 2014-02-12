@@ -15,7 +15,7 @@ public struct ParseError {
 }
 
 public class Module {
-	TextRange[] declarations;
+	Declaration[] declarations;
 	ParseError[] errors;
 	dstring text;
 }
