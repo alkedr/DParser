@@ -9,9 +9,8 @@ import std.stdio;
 import std.algorithm;
 
 
-public struct ParseError {
-	const string message;
-	const TextRange textRange;
+public class ParseError : TextRange {
+	string message;
 }
 
 public class Module {
@@ -167,7 +166,12 @@ Module parse(dstring text) {
 			assert(isEOF);
 			textRange.end = currentPosition;
 		}
-		m.errors ~= ParseError(message, textRange);
+		auto e = new ParseError;
+		e.wholeText = text;
+		e.begin = textRange.begin;
+		e.end = textRange.end;
+		e.message = message;
+		m.errors ~= e;
 	}
 
 	void errorExpected(string message) {

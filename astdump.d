@@ -78,9 +78,9 @@ int main(string[] args) {
 
 	Module m = parse(dtext(readText!(string)(args[1])));
 	foreach (error; m.errors) {
-		writeln("'", error.textRange.textInRange , "': error: ", error.message);
+		writeln("'", error.textInRange , "': error: ", error.message);
 		level++;
-		field("textRange", textRange(error.textRange));
+		field("textRange", textRange(error));
 		level--;
 	}
 	auto dumper = new ASTDumpVisitor;
