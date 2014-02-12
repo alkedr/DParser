@@ -2,24 +2,26 @@ module ast;
 
 import std.array : join;
 import std.algorithm : map;
+import std.string : format;
 
 
-abstract class Visitor {
-	public void visit(Element element) {
-		if (cast(ModuleDeclaration)element) visit(cast(ModuleDeclaration)element);
-		else if (cast(ModuleName)element) visit(cast(ModuleName) element);
-		else if (cast(Import)element) visit(cast(Import) element);
-		else if (cast(ImportSymbol)element) visit(cast(ImportSymbol) element);
-		else if (cast(ImportDeclaration)element) visit(cast(ImportDeclaration) element);
-	}
-
-	public void visit(ModuleDeclaration element) { element.accept(this); }
-	public void visit(ImportDeclaration element) { element.accept(this); }
-	public void visit(Import element) { element.accept(this); }
-	public void visit(ImportSymbol element) { element.accept(this); }
-	public void visit(ModuleName element) { element.accept(this); }
+template generateAbstractVisitor(classNames...) {
+	immutable string generateAbstractVisitor =
+		"public void visit(Element element) {" ~
+			[classNames].map!(s => format("if (cast(%1$s)element) visit(cast(%1$s)element);", s)).join("else ") ~
+		"}" ~
+		[classNames].map!(s => format("public void visit(%s element) { element.accept(this); }", s)).join();
 }
 
+abstract class Visitor {
+	mixin(generateAbstractVisitor!(
+		"ModuleDeclaration",
+		"ModuleName",
+		"Import",
+		"ImportSymbol",
+		"ImportDeclaration"
+	));
+};
 
 
 struct TextPosition {
