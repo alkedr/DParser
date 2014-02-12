@@ -82,31 +82,17 @@ Module parse(dstring text) {
 		skipCrapForPosition(position);
 	}
 
-	TextPosition previousPosition;
 	TextPosition currentPosition;
 
-	dchar previousChar() { return text[previousPosition.index]; }
-	dchar  currentChar() { return text[ currentPosition.index]; }
+	dchar currentChar() { return text[ currentPosition.index]; }
 
 	bool isEOF() { return (currentChar == '\u0000') || (currentChar == '\u001A'); }
 
-	dchar previousCharNoSkip() {
-		if (currentPosition.index == 0) return 0;
-		return text[currentPosition.index-1];
-	}
-
-	dchar nextCharNoSkip() {
-		if (isEOF()) return 0;
-		return text[currentPosition.index+1];
-	}
-
 	void advance() {
-		previousPosition = currentPosition;
 		advancePosition(currentPosition);
 	}
 
 	void advanceNoSkip() {
-		previousPosition = currentPosition;
 		advancePositionNoSkip(currentPosition);
 	}
 
@@ -205,30 +191,24 @@ Module parse(dstring text) {
 		return t;
 	}
 
-	T endParsing(T)(T t, TextPosition end = previousPosition) {
-		advancePositionNoSkip(end);
-		if (t.begin.index > end.index) {
-			t.begin = end;
-		}
+	T endParsing(T)(T t, TextPosition end = currentPosition) {
 		t.end = end;
+		if (t.begin.index > t.end.index) {
+			t.begin = t.end;
+		}
 		skipCrap();
 		return t;
 	}
 
 	Identifier parseIdentifier() {
 		auto result = startParsing!(Identifier);
-		while (isAlphaNum(currentChar) || (currentChar == '_')) {  // TODO: can't start with digit
-			advanceNoSkip();
-		}
-		return endParsing(result);
-	}
-
-	bool parseChar(dchar c) {
-		if (currentChar == c) {
-			advanceNoSkip();
-			return true;
+		if (isAlpha(currentChar) || (currentChar == '_')) {
+			while (isAlphaNum(currentChar) || (currentChar == '_')) {  // TODO: can't start with digit
+				advanceNoSkip();
+			}
+			return endParsing(result);
 		} else {
-			return false;
+			return endParsing(result, result.begin);
 		}
 	}
 
@@ -245,10 +225,11 @@ Module parse(dstring text) {
 			auto moduleName = startParsing!(ModuleName)(firstPart.begin);
 			skipCrapForPosition(moduleName.begin);
 			moduleName.parts ~= firstPart;
-			while (parseChar('.')) {
+			while (currentChar == '.') {
+				advanceNoSkip();
 				moduleName.parts ~= parseIdentifier();
 			}
-			return endParsing(moduleName);
+			return endParsing(moduleName, moduleName.parts[$-1].end);
 		}
 
 		ModuleName parseModuleName() {
@@ -260,14 +241,15 @@ Module parse(dstring text) {
 
 			d.name = parseModuleName();
 
-			if (!parseChar(';')) {
+			if (currentChar != ';') {
 				errorExpectedChars(['.', ';']);
 				if (!d.name.empty) {
-					d.end = d.name.parts[$-1].end;
+					endParsing(d, d.name.parts[$-1].end);
 				}
+			} else {
+				advanceNoSkip();
+				endParsing(d);
 			}
-
-			endParsing(d);
 
 			if (d.name.empty) {
 				error(`no module name`, d);
@@ -281,26 +263,31 @@ Module parse(dstring text) {
 		Import parseImport() {
 			auto i = startParsing!(Import);
 			auto identifier = parseIdentifier();
-			if (parseChar('=')) {
+			if (currentChar == '=') {
+				advanceNoSkip();
 				i.aliasName = identifier;
 				i.moduleName = parseModuleName();
 			} else {
 				i.moduleName = finishParsingModuleName(identifier);
 			}
-			if (parseChar(':')) {
+			if (currentChar == ':') {
+				advanceNoSkip();
 				do {
 					auto symbolNameOrAlias = parseIdentifier();
 					auto symbol = startParsing!(ImportSymbol)(symbolNameOrAlias.begin);
-					if (parseChar('=')) {
+					if (currentChar == '=') {
+						advanceNoSkip();
 						symbol.aliasName = symbolNameOrAlias;
 						symbol.name = parseIdentifier();
 					} else {
 						symbol.name = symbolNameOrAlias;
 					}
-					i.symbols ~= endParsing(symbol);
-				} while (parseChar(','));
+					i.symbols ~= endParsing(symbol, symbol.name.end);
+					if (currentChar != ',') break;
+					advanceNoSkip();
+				} while (true);
 			}
-			return endParsing(i, previousPosition);
+			return endParsing(i);
 		}
 
 		void finishParsingImportDeclaration(TextPosition begin, bool isStatic) {
@@ -309,9 +296,13 @@ Module parse(dstring text) {
 
 			do {
 				d.imports ~= parseImport();
-			} while (parseChar(','));
+				if (currentChar != ',') break;
+				advanceNoSkip();
+			} while (true);
 
-			if (!parseChar(';')) {
+			if (currentChar == ';') {
+				advanceNoSkip();
+			} else  {
 				//error
 			}
 
