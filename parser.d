@@ -84,11 +84,9 @@ Module parse(dstring text) {
 
 	TextPosition previousPosition;
 	TextPosition currentPosition;
-	TextPosition nextPosition;
 
 	dchar previousChar() { return text[previousPosition.index]; }
 	dchar  currentChar() { return text[ currentPosition.index]; }
-	dchar     nextChar() { return text[    nextPosition.index]; }
 
 	bool isEOF() { return (currentChar == '\u0000') || (currentChar == '\u001A'); }
 
@@ -104,20 +102,16 @@ Module parse(dstring text) {
 
 	void advance() {
 		previousPosition = currentPosition;
-		currentPosition = nextPosition;
-		advancePosition(nextPosition);
+		advancePosition(currentPosition);
 	}
 
 	void advanceNoSkip() {
 		previousPosition = currentPosition;
 		advancePositionNoSkip(currentPosition);
-		if (currentPosition == nextPosition) advancePosition(nextPosition);
 	}
 
 	void skipCrap() {
 		skipCrapForPosition(currentPosition);
-		nextPosition = currentPosition;
-		advancePosition(nextPosition);
 	}
 
 
@@ -161,7 +155,7 @@ Module parse(dstring text) {
 	}
 
 
-	void error(string message, TextRange textRange = new TextRange(text, previousPosition, currentPosition)) {
+	void error(string message, TextRange textRange) {
 		if (textRange.end.index >= text.length-1) {
 			assert(isEOF);
 			textRange.end = currentPosition;
