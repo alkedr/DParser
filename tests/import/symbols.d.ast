@@ -3,4 +3,12 @@ ast.ImportDeclaration 'import abc.def.ghi : xyz, qwerty;':
   ast.Import 'abc.def.ghi : xyz, qwerty':
     aliasName: 'null'
     moduleName: 'abc.def.ghi'
-    symbols: '["xyz", "qwerty"]'
+    ast.ModuleName 'abc.def.ghi':
+      name: 'abc.def.ghi'
+      parts: '["abc", "def", "ghi"]'
+    ast.ImportSymbol 'xyz':
+      aliasName: 'null'
+      name: 'xyz'
+    ast.ImportSymbol 'qwerty':
+      aliasName: 'null'
+      name: 'qwerty'

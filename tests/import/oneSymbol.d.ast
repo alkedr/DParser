@@ -3,4 +3,9 @@ ast.ImportDeclaration 'import abc.def.ghi : xyz;':
   ast.Import 'abc.def.ghi : xyz':
     aliasName: 'null'
     moduleName: 'abc.def.ghi'
-    symbols: '["xyz"]'
+    ast.ModuleName 'abc.def.ghi':
+      name: 'abc.def.ghi'
+      parts: '["abc", "def", "ghi"]'
+    ast.ImportSymbol 'xyz':
+      aliasName: 'null'
+      name: 'xyz'

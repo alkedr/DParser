@@ -9,12 +9,14 @@ abstract class Visitor {
 		if (cast(ModuleDeclaration)element) visit(cast(ModuleDeclaration)element);
 		else if (cast(ModuleName)element) visit(cast(ModuleName) element);
 		else if (cast(Import)element) visit(cast(Import) element);
+		else if (cast(ImportSymbol)element) visit(cast(ImportSymbol) element);
 		else if (cast(ImportDeclaration)element) visit(cast(ImportDeclaration) element);
 	}
 
 	public void visit(ModuleDeclaration element) { element.accept(this); }
 	public void visit(ImportDeclaration element) { element.accept(this); }
 	public void visit(Import element) { element.accept(this); }
+	public void visit(ImportSymbol element) { element.accept(this); }
 	public void visit(ModuleName element) { element.accept(this); }
 }
 
@@ -84,10 +86,22 @@ class ModuleDeclaration : Declaration {
 	}
 }
 
-class Import : Declaration {
+class ImportSymbol : Element {
+	Identifier aliasName;
+	Identifier name;
+}
+
+class Import : Element {
 	Identifier aliasName;
 	ModuleName moduleName;
-	Identifier[] symbols;
+	ImportSymbol[] symbols;
+
+	override public void accept(Visitor visitor) {
+		visitor.visit(moduleName);
+		foreach (symbol; symbols) {
+			visitor.visit(symbol);
+		}
+	}
 }
 
 class ImportDeclaration : Declaration {

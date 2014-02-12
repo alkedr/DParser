@@ -3,4 +3,6 @@ ast.ImportDeclaration 'import xyz = abc.def.ghi;':
   ast.Import 'xyz = abc.def.ghi':
     aliasName: 'xyz'
     moduleName: 'abc.def.ghi'
-    importBind: '[]'
+    ast.ModuleName 'abc.def.ghi':
+      name: 'abc.def.ghi'
+      parts: '["abc", "def", "ghi"]'

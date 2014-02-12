@@ -226,24 +226,44 @@ Module parse(dstring text) {
 
 	void parseDeclaration() {
 
-		T newDeclaration(T)(TextPosition begin, TextPosition end) {
-			auto d = new T;
-			d.textRange = TextRange(text, begin, end);
+		T startParsing(T)(const ref TextPosition begin = currentPosition) {
+			auto t = new T;
+			t.textRange = TextRange(text, begin, currentPosition);
+			skipCrap();
+			return t;
+		}
+
+		T startParsingDeclaration(T)(const ref TextPosition begin = currentPosition) {
+			auto d = startParsing!(T)(begin);
 			m.declarations ~= d;
 			return d;
 		}
 
-		ModuleName parseModuleName() {
-			auto moduleName = new ModuleName;
-			do {
+		T endParsing(T)(T t, TextPosition end = previousPosition) {
+			advancePositionNoSkip(end);
+			if (t.textRange.begin.index > end.index) {
+				t.textRange.begin = end;
+			}
+			t.textRange.end = end;
+			skipCrap();
+			return t;
+		}
+
+		ModuleName finishParsingModuleName(Identifier firstPart) {
+			auto moduleName = startParsing!(ModuleName)(firstPart.begin);
+			moduleName.parts ~= firstPart;
+			while (parseChar('.')) {
 				moduleName.parts ~= parseIdentifier();
-			} while (parseChar('.'));
-			moduleName.textRange = TextRange(text, moduleName.parts[0].textRange.begin, moduleName.parts[$-1].textRange.end);
-			return moduleName;
+			}
+			return endParsing(moduleName);
+		}
+
+		ModuleName parseModuleName() {
+			return finishParsingModuleName(parseIdentifier());
 		}
 
 		void finishParsingModuleDeclaration(TextPosition begin) {
-			auto d = newDeclaration!(ModuleDeclaration)(begin, currentPosition);
+			auto d = startParsingDeclaration!(ModuleDeclaration)(begin);
 
 			d.name = parseModuleName();
 
@@ -266,27 +286,37 @@ Module parse(dstring text) {
 		}
 
 		void finishParsingImportDeclaration(TextPosition begin, bool isStatic) {
-			auto d = newDeclaration!(ImportDeclaration)(begin, currentPosition);
+			auto d = startParsingDeclaration!(ImportDeclaration)(begin);
 			d.isStatic = isStatic;
 
-			auto moduleName = parseModuleName();
-
-			if (parseChar(';')) {
-				d.textRange.end = currentPosition;
-				auto i = new Import;
-				i.textRange = moduleName.textRange;
-				i.moduleName = moduleName;
-				d.imports ~= i;
-			} else if (parseChar(',')) {
-				//assert(0);
-			} else if (parseChar(':')) {
-				//assert(0);
+			auto i = startParsing!(Import);
+			auto identifier = parseIdentifier();
+			if (parseChar('=')) {
+				i.aliasName = identifier;
+				i.moduleName = parseModuleName();
 			} else {
-				errorExpectedChars(['.', ',', ':', ';']);
-				if (!moduleName.empty) {
-					d.textRange.end = moduleName.parts[$-1].textRange.end;
+				i.moduleName = finishParsingModuleName(identifier);
+			}
+			if (parseChar(':')) {
+				while (currentChar != ';') {
+					auto symbolNameOrAlias = parseIdentifier();
+					auto symbol = startParsing!(ImportSymbol)(symbolNameOrAlias.textRange.begin);
+					if (parseChar('=')) {
+						symbol.aliasName = symbolNameOrAlias;
+						symbol.name = parseIdentifier();
+					} else {
+						symbol.name = symbolNameOrAlias;
+					}
+					i.symbols ~= endParsing(symbol);
+					if (!parseChar(',')) break;
 				}
 			}
+			if (currentChar == ';') {
+				d.imports ~= endParsing(i, previousPosition);
+				advanceNoSkip();
+			}
+
+			endParsing(d);
 		}
 
 		skipCrap();
