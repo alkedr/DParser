@@ -37,7 +37,7 @@ void accept(T)(T element, Visitor visitor) {
 }
 
 
-struct TextPosition {
+struct Cursor {
 	uint index;
 	uint line = 1;
 	uint column = 1;
@@ -45,11 +45,11 @@ struct TextPosition {
 
 
 class TextRange {
-	TextPosition begin;
-	TextPosition end;
+	Cursor begin;
+	Cursor end;
 	const(dchar)[] wholeText;
 
-	this(const(dchar)[] wholeText = null, TextPosition begin = TextPosition(), TextPosition end = TextPosition()) {
+	this(const(dchar)[] wholeText = null, Cursor begin = Cursor(), Cursor end = Cursor()) {
 		this.wholeText = wholeText;
 		this.begin = begin;
 		this.end = end;

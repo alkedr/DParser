@@ -27,18 +27,18 @@ Module parse(dstring text) {
 	m.text = text;
 
 
-	void advancePositionNoSkip(ref TextPosition position) {
-		auto current = text[position.index];
+	void advanceCursorNoSkip(ref Cursor currentCursor) {
+		auto current = text[currentCursor.index];
 		if ((current == '\u0000') || (current == '\u001A')) return;
-		auto next = text[position.index+1];
+		auto next = text[currentCursor.index+1];
 
 		if (((current == '\u000D') && (next != '\u000A')) ||
 		    (current == '\u000A') || (current == '\u2028') || (current == '\u2028')) {
-			position.line++;
-			position.column = 0;
+			currentCursor.line++;
+			currentCursor.column = 0;
 		}
-		position.column++;
-		position.index++;
+		currentCursor.column++;
+		currentCursor.index++;
 	}
 
 	void skipLineComment() {
@@ -50,9 +50,9 @@ Module parse(dstring text) {
 	void skipNestingBlockComment() {
 	}
 
-	void skipCrapForPosition(ref TextPosition position) {
+	void skipCrapForCursor(ref Cursor currentCursor) {
 		while (true) {
-			switch (text[position.index]) {
+			switch (text[currentCursor.index]) {
 				case '\u000D':
 				case '\u000A':
 				case '\u2028':
@@ -64,7 +64,7 @@ Module parse(dstring text) {
 					break;
 
 				case '/':
-					switch (text[position.index+1]) {
+					switch (text[currentCursor.index+1]) {
 						case '/': skipLineComment();
 						case '*': skipBlockComment();
 						case '+': skipNestingBlockComment();
@@ -73,31 +73,31 @@ Module parse(dstring text) {
 
 				default: return;
 			}
-			advancePositionNoSkip(position);
+			advanceCursorNoSkip(currentCursor);
 		}
 	}
 
-	void advancePosition(ref TextPosition position) {
-		advancePositionNoSkip(position);
-		skipCrapForPosition(position);
+	void advanceCursor(ref Cursor currentCursor) {
+		advanceCursorNoSkip(currentCursor);
+		skipCrapForCursor(currentCursor);
 	}
 
-	TextPosition currentPosition;
+	Cursor currentCursor;
 
-	dchar currentChar() { return text[ currentPosition.index]; }
+	dchar currentChar() { return text[ currentCursor.index]; }
 
 	bool isEOF() { return (currentChar == '\u0000') || (currentChar == '\u001A'); }
 
 	void advance() {
-		advancePosition(currentPosition);
+		advanceCursor(currentCursor);
 	}
 
 	void advanceNoSkip() {
-		advancePositionNoSkip(currentPosition);
+		advanceCursorNoSkip(currentCursor);
 	}
 
 	void skipCrap() {
-		skipCrapForPosition(currentPosition);
+		skipCrapForCursor(currentCursor);
 	}
 
 
@@ -144,7 +144,7 @@ Module parse(dstring text) {
 	void error(string message, TextRange textRange) {
 		if (textRange.end.index >= text.length-1) {
 			assert(isEOF);
-			textRange.end = currentPosition;
+			textRange.end = currentCursor;
 		}
 		auto e = new ParseError;
 		e.wholeText = text;
@@ -155,11 +155,11 @@ Module parse(dstring text) {
 	}
 
 	void errorExpected(string message) {
-		TextRange textRange = new TextRange(text, currentPosition, currentPosition);
+		TextRange textRange = new TextRange(text, currentCursor, currentCursor);
 		if (currentChar == 0) {
 			error(format("expected " ~ message ~ ", found end of file"), textRange);
 		} else {
-			advancePositionNoSkip(textRange.end);
+			advanceCursorNoSkip(textRange.end);
 			error(format("expected " ~ message ~ ", found '%c'", currentChar), textRange);
 		}
 	}
@@ -182,16 +182,16 @@ Module parse(dstring text) {
 	}
 
 
-	T startParsing(T)(const ref TextPosition begin = currentPosition) {
+	T startParsing(T)(const ref Cursor begin = currentCursor) {
 		skipCrap();
 		auto t = new T;
 		t.wholeText = text;
 		t.begin = begin;
-		t.end = currentPosition;
+		t.end = currentCursor;
 		return t;
 	}
 
-	T endParsing(T)(T t, TextPosition end = currentPosition) {
+	T endParsing(T)(T t, Cursor end = currentCursor) {
 		t.end = end;
 		if (t.begin.index > t.end.index) {
 			t.begin = t.end;
@@ -215,7 +215,7 @@ Module parse(dstring text) {
 
 	void parseDeclaration() {
 
-		T startParsingDeclaration(T)(const ref TextPosition begin = currentPosition) {
+		T startParsingDeclaration(T)(const ref Cursor begin = currentCursor) {
 			auto d = startParsing!(T)(begin);
 			m.declarations ~= d;
 			return d;
@@ -223,7 +223,7 @@ Module parse(dstring text) {
 
 		ModuleName finishParsingModuleName(Identifier firstPart) {
 			auto moduleName = startParsing!(ModuleName)(firstPart.begin);
-			skipCrapForPosition(moduleName.begin);
+			skipCrapForCursor(moduleName.begin);
 			moduleName.parts ~= firstPart;
 			while (currentChar == '.') {
 				advanceNoSkip();
@@ -236,7 +236,7 @@ Module parse(dstring text) {
 			return finishParsingModuleName(parseIdentifier());
 		}
 
-		void finishParsingModuleDeclaration(TextPosition begin) {
+		void finishParsingModuleDeclaration(Cursor begin) {
 			auto d = startParsingDeclaration!(ModuleDeclaration)(begin);
 
 			d.name = parseModuleName();
@@ -290,7 +290,7 @@ Module parse(dstring text) {
 			return endParsing(i);
 		}
 
-		void finishParsingImportDeclaration(TextPosition begin, bool isStatic) {
+		void finishParsingImportDeclaration(Cursor begin, bool isStatic) {
 			auto d = startParsingDeclaration!(ImportDeclaration)(begin);
 			d.isStatic = isStatic;
 
@@ -310,7 +310,7 @@ Module parse(dstring text) {
 		}
 
 		skipCrap();
-		TextPosition begin = currentPosition;
+		Cursor begin = currentCursor;
 		mixin(generateParser!(ParserGenerator()
 			.onKeyword("module", "return finishParsingModuleDeclaration(begin);", "")
 			.onKeyword("import", "return finishParsingImportDeclaration(begin, false);", "")
