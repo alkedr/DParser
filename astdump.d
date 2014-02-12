@@ -7,7 +7,7 @@ import std.conv : text, dtext, to;
 import std.array : replicate;
 
 
-string textRange(TextRange t) {
+string textRange(const TextRange t) {
 	assert(t !is null);
 	return format("%d..%d  %d:%d..%d:%d", t.begin.index, t.end.index,
 		t.begin.line, t.begin.column, t.end.line, t.end.column);
@@ -29,7 +29,7 @@ class ASTDumpVisitor : Visitor {
 	void start(Element d) {
 		assert(d !is null);
 		assert(d.textRange !is null);
-		writefln(`%s%s '%s':`, indent(), d.classinfo.name, d.textRange);
+		writefln(`%s%s '%s':`, indent(), d.classinfo.name, d.textInRange);
 		level++;
 	}
 
@@ -80,7 +80,7 @@ int main(string[] args) {
 
 	Module m = parse(dtext(readText!(string)(args[1])));
 	foreach (error; m.errors) {
-		writeln("'", error.textRange , "': error: ", error.message);
+		writeln("'", error.textRange.textInRange , "': error: ", error.message);
 		level++;
 		field("textRange", textRange(error.textRange));
 		level--;

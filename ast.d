@@ -31,10 +31,12 @@ struct TextPosition {
 }
 
 
-struct TextRange {
+class TextRange {
 	TextPosition begin;
 	TextPosition end;
-	private const(dchar)[] wholeText;
+	const(dchar)[] wholeText;
+
+	this() {}
 
 	this(const(dchar)[] wholeText, TextPosition begin = TextPosition(), TextPosition end = TextPosition()) {
 		this.wholeText = wholeText;
@@ -46,15 +48,10 @@ struct TextRange {
 		assert(wholeText !is null);
 		return wholeText[begin.index .. end.index];
 	}
-
-	alias textInRange this;
 }
 
 
-
-class Element {
-	TextRange textRange;
-
+class Element : TextRange {
 	public void accept(Visitor visitor) {}
 }
 
@@ -64,7 +61,7 @@ class Declaration : Element {
 
 
 class Identifier : Element {
-	alias textRange this;
+	alias textInRange this;
 }
 
 
@@ -72,7 +69,7 @@ class ModuleName : Element {
 	Identifier[] parts;
 
 	@property const(dchar)[] name() {
-		return parts.map!(x => x.textRange.textInRange).join("."d);
+		return parts.map!(x => x.textInRange).join("."d);
 	}
 
 	alias name this;

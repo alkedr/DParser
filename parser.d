@@ -162,7 +162,7 @@ Module parse(dstring text) {
 	}
 
 
-	void error(string message, TextRange textRange = TextRange(text, previousPosition, currentPosition)) {
+	void error(string message, TextRange textRange = new TextRange(text, previousPosition, currentPosition)) {
 		if (textRange.end.index >= text.length-1) {
 			assert(isEOF);
 			textRange.end = currentPosition;
@@ -171,7 +171,7 @@ Module parse(dstring text) {
 	}
 
 	void errorExpected(string message) {
-		TextRange textRange = TextRange(text, currentPosition, currentPosition);
+		TextRange textRange = new TextRange(text, currentPosition, currentPosition);
 		if (currentChar == 0) {
 			error(format("expected " ~ message ~ ", found end of file"), textRange);
 		} else {
@@ -198,17 +198,31 @@ Module parse(dstring text) {
 	}
 
 
-	Identifier parseIdentifier() {
+	T startParsing(T)(const ref TextPosition begin = currentPosition) {
 		skipCrap();
-		auto begin = currentPosition;
+		auto t = new T;
+		t.wholeText = text;
+		t.begin = begin;
+		t.end = currentPosition;
+		return t;
+	}
+
+	T endParsing(T)(T t, TextPosition end = previousPosition) {
+		advancePositionNoSkip(end);
+		if (t.begin.index > end.index) {
+			t.begin = end;
+		}
+		t.end = end;
+		skipCrap();
+		return t;
+	}
+
+	Identifier parseIdentifier() {
+		auto result = startParsing!(Identifier);
 		while (isAlphaNum(currentChar) || (currentChar == '_')) {  // TODO: can't start with digit
 			advanceNoSkip();
 		}
-		auto end = currentPosition;
-		skipCrap();
-		auto result = new Identifier;
-		result.textRange = TextRange(text, begin, end);
-		return result;
+		return endParsing(result);
 	}
 
 	bool parseChar(dchar c) {
@@ -221,17 +235,7 @@ Module parse(dstring text) {
 	}
 
 
-
-
-
 	void parseDeclaration() {
-
-		T startParsing(T)(const ref TextPosition begin = currentPosition) {
-			skipCrap();
-			auto t = new T;
-			t.textRange = TextRange(text, begin, currentPosition);
-			return t;
-		}
 
 		T startParsingDeclaration(T)(const ref TextPosition begin = currentPosition) {
 			auto d = startParsing!(T)(begin);
@@ -239,18 +243,9 @@ Module parse(dstring text) {
 			return d;
 		}
 
-		T endParsing(T)(T t, TextPosition end = previousPosition) {
-			advancePositionNoSkip(end);
-			if (t.textRange.begin.index > end.index) {
-				t.textRange.begin = end;
-			}
-			t.textRange.end = end;
-			skipCrap();
-			return t;
-		}
-
 		ModuleName finishParsingModuleName(Identifier firstPart) {
 			auto moduleName = startParsing!(ModuleName)(firstPart.begin);
+			skipCrapForPosition(moduleName.begin);
 			moduleName.parts ~= firstPart;
 			while (parseChar('.')) {
 				moduleName.parts ~= parseIdentifier();
@@ -270,17 +265,17 @@ Module parse(dstring text) {
 			if (!parseChar(';')) {
 				errorExpectedChars(['.', ';']);
 				if (!d.name.empty) {
-					d.textRange.end = d.name.parts[$-1].textRange.end;
+					d.end = d.name.parts[$-1].end;
 				}
 			}
 
 			endParsing(d);
 
 			if (d.name.empty) {
-				error(`no module name`, d.textRange);
+				error(`no module name`, d);
 			} else {
-				if (!find!(packageName => packageName.textRange.empty || isDigit(packageName.textRange[0]))(d.name.parts).empty) {
-					error("invalid module name", d.textRange);
+				if (!find!(packageName => packageName.textInRange.empty || isDigit(packageName.textInRange[0]))(d.name.parts).empty) {
+					error("invalid module name", d);
 				}
 			}
 		}
@@ -297,7 +292,7 @@ Module parse(dstring text) {
 			if (parseChar(':')) {
 				do {
 					auto symbolNameOrAlias = parseIdentifier();
-					auto symbol = startParsing!(ImportSymbol)(symbolNameOrAlias.textRange.begin);
+					auto symbol = startParsing!(ImportSymbol)(symbolNameOrAlias.begin);
 					if (parseChar('=')) {
 						symbol.aliasName = symbolNameOrAlias;
 						symbol.name = parseIdentifier();
@@ -339,4 +334,3 @@ Module parse(dstring text) {
 	}
 	return m;
 }
-
