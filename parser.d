@@ -177,7 +177,6 @@ Module parse(dstring text) {
 			}
 			message ~= format("'%c' or '%c'", chars[0], chars[1], chars[2]);
 		}
-
 		errorExpected(message);
 	}
 
@@ -203,7 +202,7 @@ Module parse(dstring text) {
 	Identifier parseIdentifier() {
 		auto result = startParsing!(Identifier);
 		if (isAlpha(currentChar) || (currentChar == '_')) {
-			while (isAlphaNum(currentChar) || (currentChar == '_')) {  // TODO: can't start with digit
+			while (isAlphaNum(currentChar) || (currentChar == '_')) {
 				advanceNoSkip();
 			}
 			return endParsing(result);
@@ -237,13 +236,16 @@ Module parse(dstring text) {
 		}
 
 		void finishParsingModuleDeclaration(Cursor begin) {
+			auto keywordEnd = currentCursor;
 			auto d = startParsingDeclaration!(ModuleDeclaration)(begin);
 
 			d.name = parseModuleName();
 
 			if (currentChar != ';') {
 				errorExpectedChars(['.', ';']);
-				if (!d.name.empty) {
+				if (d.name.empty) {
+					endParsing(d, keywordEnd);
+				} else {
 					endParsing(d, d.name.parts[$-1].end);
 				}
 			} else {
