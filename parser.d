@@ -17,14 +17,17 @@ public class Module {
 	Declaration[] declarations;
 	ParseError[] errors;
 	dstring text;
+
+	this(dstring text) {
+		this.text = text;
+	}
 }
 
 
 Module parse(dstring text) {
 	text ~= 0;
 
-	Module m = new Module;
-	m.text = text;
+	Module m = new Module(text);
 
 
 	void advanceCursorNoSkip(ref Cursor currentCursor) {
@@ -115,10 +118,8 @@ Module parse(dstring text) {
 			return this;
 		}
 
-		ParserGenerator onKeyword(const dchar[] chars, string actionOnMatch, string actionOnMismatch) {
-			return onCharSequence(chars,
-				"if(isAlphaNum(currentChar)||(currentChar=='_')){" ~ actionOnMismatch ~ "}else{" ~ actionOnMatch ~ "}"
-			);
+		ParserGenerator onKeyword(const dchar[] chars, string action) {
+			return onCharSequence(chars, "if(!isAlphaNum(currentChar)&&(currentChar!='_')){" ~ action ~ "}");
 		}
 
 		ParserGenerator onNoMatch(string action) {
@@ -312,8 +313,8 @@ Module parse(dstring text) {
 		skipCrap();
 		Cursor begin = currentCursor;
 		mixin(generateParser!(ParserGenerator()
-			.onKeyword("module", "return finishParsingModuleDeclaration(begin);", "")
-			.onKeyword("import", "return finishParsingImportDeclaration(begin, false);", "")
+			.onKeyword("module", "return finishParsingModuleDeclaration(begin);")
+			.onKeyword("import", "return finishParsingImportDeclaration(begin, false);")
 			.onNoMatch("return;")
 		));
 	}
