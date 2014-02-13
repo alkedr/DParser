@@ -154,28 +154,26 @@ Module parse(dstring text) {
 		m.errors ~= e;
 	}
 
-	void errorExpected(string message) {
+	void errorExpected(string what) {
 		TextRange textRange = new TextRange(text, currentCursor, currentCursor);
 		if (currentChar == 0) {
-			error(format("expected " ~ message ~ ", found end of file"), textRange);
+			error(format("expected " ~ what ~ ", found end of file"), textRange);
 		} else {
 			advanceCursorNoSkip(textRange.end);
-			error(format("expected " ~ message ~ ", found '%c'", currentChar), textRange);
+			error(format("expected " ~ what ~ ", found '%c'", currentChar), textRange);
 		}
 	}
 
-	void errorExpectedChars(dchar[] chars) {
+	void errorExpectedChars(const dchar[] chars) {
 		assert(!chars.empty);
-		string message;
-		if (chars.length == 1) {
-			message = format("'%c'", chars[0]);
-		} else if (chars.length == 2) {
-			message = format("'%c' or '%c'", chars[0], chars[1]);
-		} else if (chars.length == 3) {
+		string message = format("'%c'", chars[0]);
+		if (chars.length > 2) {
 			foreach (c; chars[0..$-2]) {
-				message = format("'%c', ", c);
+				message ~= format(", '%c'", c);
 			}
-			message ~= format("'%c' or '%c'", chars[0], chars[1], chars[2]);
+		}
+		if (chars.length > 1) {
+			message ~= format(" or '%c'", chars[$-1]);
 		}
 		errorExpected(message);
 	}
