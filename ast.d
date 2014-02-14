@@ -104,3 +104,37 @@ class ImportDeclaration : Declaration {
 	bool isStatic;
 	Import[] imports;
 }
+
+enum BasicType {
+	VOID,
+	BOOL,
+	BYTE,
+	UBYTE,
+	SHORT,
+	USHORT,
+	INT,
+	UINT,
+	LONG,
+	ULONG,
+	CENT,
+	UCENT,
+	FLOAT,
+	DOUBLE,
+	REAL,
+	IFLOAT,
+	IDOUBLE,
+	IREAL,
+	CFLOAT,
+	CDOUBLE,
+	CREAL,
+	CHAR,
+	WCHAR,
+	DCHAR,
+
+	USER,
+}
+
+class Type : Element {
+	Identifier name;
+	BasicType basicType;
+}

@@ -255,7 +255,7 @@ Module parse(dstring text) {
 			if (d.name.empty) {
 				error(`no module name`, d);
 			} else {
-				if (!find!(packageName => packageName.textInRange.empty || isDigit(packageName.textInRange[0]))(d.name.parts).empty) {
+				if (!d.name.parts.find!(packageName => packageName.textInRange.empty || isDigit(packageName.textInRange[0])).empty) {
 					error("invalid module name", d);
 				}
 			}
@@ -310,11 +310,39 @@ Module parse(dstring text) {
 			endParsing(d);
 		}
 
+		void parsedBasicType(Cursor begin, BasicType basicType) {
+
+		}
+
 		skipCrap();
 		Cursor begin = currentCursor;
 		mixin(generateParser!(ParserGenerator()
 			.onKeyword("module", "return finishParsingModuleDeclaration(begin);")
 			.onKeyword("import", "return finishParsingImportDeclaration(begin, false);")
+
+			.onKeyword("void",    "return parsedBasicType(begin, BasicType.VOID);"   )
+			.onKeyword("bool",    "return parsedBasicType(begin, BasicType.BOOL);"   )
+			.onKeyword("byte",    "return parsedBasicType(begin, BasicType.BYTE);"   )
+			.onKeyword("ubyte",   "return parsedBasicType(begin, BasicType.UBYTE);"  )
+			.onKeyword("short",   "return parsedBasicType(begin, BasicType.SHORT);"  )
+			.onKeyword("ushort",  "return parsedBasicType(begin, BasicType.USHORT);" )
+			.onKeyword("int",     "return parsedBasicType(begin, BasicType.INT);"    )
+			.onKeyword("uint",    "return parsedBasicType(begin, BasicType.UINT);"   )
+			.onKeyword("long",    "return parsedBasicType(begin, BasicType.LONG);"   )
+			.onKeyword("ulong",   "return parsedBasicType(begin, BasicType.ULONG);"  )
+			.onKeyword("char",    "return parsedBasicType(begin, BasicType.CHAR);"   )
+			.onKeyword("wchar",   "return parsedBasicType(begin, BasicType.WCHAR);"  )
+			.onKeyword("dchar",   "return parsedBasicType(begin, BasicType.DCHAR);"  )
+			.onKeyword("float",   "return parsedBasicType(begin, BasicType.FLOAT);"  )
+			.onKeyword("double",  "return parsedBasicType(begin, BasicType.DOUBLE);" )
+			.onKeyword("real",    "return parsedBasicType(begin, BasicType.REAL);"   )
+			.onKeyword("ifloat",  "return parsedBasicType(begin, BasicType.IFLOAT);" )
+			.onKeyword("idouble", "return parsedBasicType(begin, BasicType.IDOUBLE);")
+			.onKeyword("ireal",   "return parsedBasicType(begin, BasicType.IREAL);"  )
+			.onKeyword("cfloat",  "return parsedBasicType(begin, BasicType.CFLOAT);" )
+			.onKeyword("cdouble", "return parsedBasicType(begin, BasicType.CDOUBLE);")
+			.onKeyword("creal",   "return parsedBasicType(begin, BasicType.CREAL);"  )
+
 			.onNoMatch("return;")
 		));
 	}
