@@ -5,5 +5,3 @@ parser
 ast.o
 astdump.o
 parser.o
-
-tests/generated
