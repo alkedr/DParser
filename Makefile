@@ -3,9 +3,6 @@ SOURCES = $(sort $(wildcard tests/*/*.d))
 .PHONY: tests/generated
 
 tests/generated: tests/generate.d Makefile
-	@echo "GENERATE"
-	@rm -Rf tests/generated
-	@mkdir tests/generated
 	@rdmd -O -release tests/generate.d
 
 %.result: % %.ast Makefile

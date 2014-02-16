@@ -7,78 +7,75 @@ import std.conv : text, dtext, to;
 import std.array : replicate;
 
 
-string textRange(const TextRange t) {
-	assert(t !is null);
-	return format("%d..%d  %d:%d..%d:%d", t.begin.index, t.end.index,
-		t.begin.line, t.begin.column, t.end.line, t.end.column);
-}
+string codeToAstString(string code) {
+	string result;
 
-
-int level = 0;
-
-string indent() {
-	return replicate("  ", level);
-}
-
-void field(T)(string key, T value) {
-	writefln(`%s%s: '%s'`, indent(), key, to!string(value));
-}
-
-class ASTDumpVisitor : Visitor {
-
-	void start(TextRange d) {
-		assert(d !is null);
-		writefln(`%s%s '%s':`, indent(), d.classinfo.name, d.textInRange);
-		level++;
+	string textRange(const TextRange t) {
+		assert(t !is null);
+		return format("%d..%d  %d:%d..%d:%d", t.begin.index, t.end.index,
+			t.begin.line, t.begin.column, t.end.line, t.end.column);
 	}
 
-	void stop() {
-		level--;
+
+	int level = 0;
+
+	string indent() {
+		return replicate("  ", level);
 	}
 
-	override public void visit(ModuleName element) {
-		start(element); scope(exit) { element.accept(this); stop(); }
-
-		field("name", element.name);
-		field("parts", element.parts);
+	void field(T)(string key, T value) {
+		result ~= format("%s%s: '%s'\n", indent(), key, to!string(value));
 	}
 
-	override public void visit(ModuleDeclaration element) {
-		start(element); scope(exit) { element.accept(this); stop(); }
+	class ASTDumpVisitor : Visitor {
+
+		void start(TextRange d) {
+			assert(d !is null);
+			result ~= format("%s%s '%s':\n", indent(), d.classinfo.name, d.textInRange);
+			level++;
+		}
+
+		void stop() {
+			level--;
+		}
+
+		override public void visit(ModuleName element) {
+			start(element); scope(exit) { element.accept(this); stop(); }
+
+			field("name", element.name);
+			field("parts", element.parts);
+		}
+
+		override public void visit(ModuleDeclaration element) {
+			start(element); scope(exit) { element.accept(this); stop(); }
+		}
+
+		override public void visit(ImportDeclaration element) {
+			start(element); scope(exit) { element.accept(this); stop(); }
+
+			field("isStatic", element.isStatic);
+		}
+
+		override public void visit(Import element) {
+			start(element); scope(exit) { element.accept(this); stop(); }
+
+			field("aliasName", element.aliasName);
+		}
+
+		override public void visit(ImportSymbol element) {
+			start(element); scope(exit) { element.accept(this); stop(); }
+
+			field("aliasName", element.aliasName);
+			field("name", element.name);
+		}
+
+		alias Visitor.visit visit;
 	}
 
-	override public void visit(ImportDeclaration element) {
-		start(element); scope(exit) { element.accept(this); stop(); }
 
-		field("isStatic", element.isStatic);
-	}
-
-	override public void visit(Import element) {
-		start(element); scope(exit) { element.accept(this); stop(); }
-
-		field("aliasName", element.aliasName);
-	}
-
-	override public void visit(ImportSymbol element) {
-		start(element); scope(exit) { element.accept(this); stop(); }
-
-		field("aliasName", element.aliasName);
-		field("name", element.name);
-	}
-
-	alias Visitor.visit visit;
-}
-
-
-int main(string[] args) {
-	if (args.length != 2) {
-		writefln("Usage: %s <input.d>", args[0]);
-		return 1;
-	}
-
-	Module m = parse(dtext(readText!(string)(args[1])));
+	Module m = parse(dtext(code));
 	foreach (error; m.errors) {
-		writeln("'", error.textInRange , "': error: ", error.message);
+		result ~= format("'%s': error: %s\n", error.textInRange, error.message);
 		level++;
 		field("textRange", textRange(error));
 		level--;
@@ -88,5 +85,5 @@ int main(string[] args) {
 		dumper.visit(declaration);
 	}
 
-	return 0;
+	return result;
 }

@@ -1,7 +1,8 @@
 module generate;
 
 import parser;
-import std.stdio : File, writefln, writeln;
+import astdump : codeToAstString;
+import std.stdio : File, stdout, writef, writefln, writeln;
 import std.file : remove;
 import std.string : format;
 import std.conv : to, dtext;
@@ -80,105 +81,37 @@ void main() {
 	};
 
 
-	int i;
-	moduleDeclaration(
-		(const string code, const string ast) {
-			test(code, ast);
-			i++;
-		}
-	);
-	writeln(i);
-}
 
+	void run(string name, void delegate(void delegate(const string code, const string ast)) generator) {
+		int testsCount, failedCount;
+		writef(name~" %10d", testsCount);
+		stdout.flush();
+		generator(
+			(const string code, const string correctAst) {
+				string actualAst = codeToAstString(code);
+				testsCount++;
 
-
-void test(string code, string correctAst) {
-	string actualAst;
-
-
-	string textRange(const TextRange t) {
-		assert(t !is null);
-		return format("%d..%d  %d:%d..%d:%d", t.begin.index, t.end.index,
-			t.begin.line, t.begin.column, t.end.line, t.end.column);
+				if (correctAst != actualAst) {
+					failedCount++;
+					writeln("\n'", code, "'");
+					File("tmp.d",   "w").writeln(correctAst);
+					File("tmp.ast", "w").writeln(actualAst);
+					writeln(executeShell("git diff --no-index --color --unified=999999999 tmp.d tmp.ast | tail -n +6").output);
+					remove("tmp.d");
+					remove("tmp.ast");
+					writef(name~" %10d  \x1b[31;01m%d\x1b[0m", testsCount, failedCount);
+					stdout.flush();
+				} else {
+					if (testsCount % 4096 == 0) {
+						writef("\u000D"~name~" %10d  %s%d\x1b[0m", testsCount, (failedCount == 0) ? "\x1b[32;01m" : "\x1b[31;01m", failedCount);
+						stdout.flush();
+					}
+				}
+			}
+		);
+		writefln("\u000D"~name~" %10d  %s%d\x1b[0m", testsCount, (failedCount == 0) ? "\x1b[32;01m" : "\x1b[31;01m", failedCount);
 	}
 
 
-	int level = 0;
-
-	string indent() {
-		return replicate("  ", level);
-	}
-
-	void field(T)(string key, T value) {
-		actualAst ~= format("%s%s: '%s'\n", indent(), key, to!string(value));
-	}
-
-	class ASTDumpVisitor : Visitor {
-
-		void start(TextRange d) {
-			assert(d !is null);
-			actualAst ~= format("%s%s '%s':\n", indent(), d.classinfo.name, d.textInRange);
-			level++;
-		}
-
-		void stop() {
-			level--;
-		}
-
-		override public void visit(ModuleName element) {
-			start(element); scope(exit) { element.accept(this); stop(); }
-
-			field("name", element.name);
-			field("parts", element.parts);
-		}
-
-		override public void visit(ModuleDeclaration element) {
-			start(element); scope(exit) { element.accept(this); stop(); }
-		}
-
-		override public void visit(ImportDeclaration element) {
-			start(element); scope(exit) { element.accept(this); stop(); }
-
-			field("isStatic", element.isStatic);
-		}
-
-		override public void visit(Import element) {
-			start(element); scope(exit) { element.accept(this); stop(); }
-
-			field("aliasName", element.aliasName);
-		}
-
-		override public void visit(ImportSymbol element) {
-			start(element); scope(exit) { element.accept(this); stop(); }
-
-			field("aliasName", element.aliasName);
-			field("name", element.name);
-		}
-
-		alias Visitor.visit visit;
-	}
-
-
-	Module m = parse(dtext(code));
-	foreach (error; m.errors) {
-		actualAst ~= format("'%s': error: %s\n", error.textInRange, error.message);
-		level++;
-		field("textRange", textRange(error));
-		level--;
-	}
-	auto dumper = new ASTDumpVisitor;
-	foreach (declaration; m.declarations) {
-		dumper.visit(declaration);
-	}
-
-
-	if (correctAst != actualAst) {
-		writeln("'", code, "'");
-		File("tmp.d",   "w").writeln(correctAst);
-		File("tmp.ast", "w").writeln(actualAst);
-		writeln(executeShell("git diff --no-index --color --unified=999999999 tmp.d tmp.ast | tail -n +6").output);
-		remove("tmp.d");
-		remove("tmp.ast");
-	}
-
+	run("module", moduleDeclaration);
 }
