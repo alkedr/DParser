@@ -7,83 +7,48 @@ import std.conv : text, dtext, to;
 import std.array : replicate;
 
 
-string codeToAstString(string code) {
-	string result;
+class ASTDumpVisitor : Visitor {
+	dstring result;
 
-	string textRange(const TextRange t) {
-		assert(t !is null);
-		return format("%d..%d  %d:%d..%d:%d", t.begin.index, t.end.index,
-			t.begin.line, t.begin.column, t.end.line, t.end.column);
+	private int indentLevel = 0;
+	private dstring indent() { return replicate("  "d, indentLevel); }
+
+	void dump(T)(T e) {
+		result ~= indent ~ to!dstring(typeid(T)) ~ " '" ~ e.textInRange ~ "':\n";
+		indentLevel++;
+		foreach (fieldName; __traits(derivedMembers, T)) {
+			static if (fieldName != "__ctor") {
+				static if (is(typeof(__traits(getMember, e, fieldName)) == class)) {
+					e.accept(this);
+				} else {
+					result ~= dtext(format("%s%s: '%s'\n"d, indent, dtext(fieldName), to!dstring(__traits(getMember, e, fieldName))));
+				}
+			}
+		}
+		indentLevel--;
 	}
 
+	alias Visitor.visit visit;
 
-	int level = 0;
-
-	string indent() {
-		return replicate("  ", level);
-	}
-
-	void field(T)(string key, T value) {
-		result ~= format("%s%s: '%s'\n", indent(), key, to!string(value));
-	}
-
-	class ASTDumpVisitor : Visitor {
-
-		void start(TextRange d) {
-			assert(d !is null);
-			result ~= format("%s%s '%s':\n", indent(), d.classinfo.name, d.textInRange);
-			level++;
-		}
-
-		void stop() {
-			level--;
-		}
-
-		override public void visit(ModuleName element) {
-			start(element); scope(exit) { element.accept(this); stop(); }
-
-			field("name", element.name);
-			field("parts", element.parts);
-		}
-
-		override public void visit(ModuleDeclaration element) {
-			start(element); scope(exit) { element.accept(this); stop(); }
-		}
-
-		override public void visit(ImportDeclaration element) {
-			start(element); scope(exit) { element.accept(this); stop(); }
-
-			field("isStatic", element.isStatic);
-		}
-
-		override public void visit(Import element) {
-			start(element); scope(exit) { element.accept(this); stop(); }
-
-			field("aliasName", element.aliasName);
-		}
-
-		override public void visit(ImportSymbol element) {
-			start(element); scope(exit) { element.accept(this); stop(); }
-
-			field("aliasName", element.aliasName);
-			field("name", element.name);
-		}
-
-		alias Visitor.visit visit;
-	}
+	override void visit(ModuleDeclaration e) { dump(e); }
+	override void visit(ImportDeclaration e) { dump(e); }
+	override void visit(ModuleName e) { dump(e); }
+	override void visit(Import e) { dump(e); }
+	override void visit(ImportSymbol e) { dump(e); }
+}
 
 
-	Module m = parse(dtext(code));
-	foreach (error; m.errors) {
-		result ~= format("'%s': error: %s\n", error.textInRange, error.message);
-		level++;
-		field("textRange", textRange(error));
-		level--;
+dstring codeToAstString(dstring code) {
+	dstring result;
+	Module m = parse(code);
+	foreach (e; m.errors) {
+		result ~= dtext(format("'%s': error: %s\n  textRange: '%d..%d  %d:%d..%d:%d'\n",
+			e.textInRange, e.message, e.begin.index, e.end.index,
+			e.begin.line, e.begin.column, e.end.line, e.end.column));
 	}
 	auto dumper = new ASTDumpVisitor;
 	foreach (declaration; m.declarations) {
 		dumper.visit(declaration);
 	}
-
-	return result;
+	return result ~ dumper.result;
 }

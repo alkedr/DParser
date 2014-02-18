@@ -2,8 +2,8 @@ SOURCES = $(sort $(wildcard tests/*/*.d))
 
 .PHONY: tests/generated
 
-tests/generated: tests/generate.d Makefile
-	@rdmd -O -release tests/generate.d
+tests: tests.d Makefile
+	@rdmd -debug $<
 
 %.result: % %.ast Makefile
 	@rdmd astdump $< > $<.tmp
@@ -12,4 +12,4 @@ tests/generated: tests/generate.d Makefile
 	@cmp -s $<.tmp $<.ast || echo
 	@rm -Rf $<.tmp
 
-tests: $(SOURCES:=.result)
+old-tests: $(SOURCES:=.result)
